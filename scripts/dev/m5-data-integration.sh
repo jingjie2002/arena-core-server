@@ -12,6 +12,7 @@ mysql_socket="${mysql_dir}/mysql.sock"
 mysql_log="${mysql_dir}/mysql.log"
 redis_pid="${runtime_dir}/redis.pid"
 server_pid=""
+export ARENA_RESULT_SERVICE_TOKEN="${ARENA_RESULT_SERVICE_TOKEN:-arena-local-m9-token}"
 
 mkdir -p "${report_dir}"
 
@@ -100,6 +101,13 @@ cat > "${server_config}" <<JSON
   "network": {"bind_address": "127.0.0.1", "tcp_port": ${server_port}, "observer_port": 49320},
   "execution": {"io_threads": 2, "storage_threads": 2, "storage_queue_capacity": 32},
   "logging": {"level": "info", "file": ""},
+  "trusted_result": {
+    "enabled": true,
+    "bind_address": "127.0.0.1",
+    "port": 49330,
+    "service_token_env": "ARENA_RESULT_SERVICE_TOKEN",
+    "result_wait_timeout_ms": 30000
+  },
   "data": {
     "enabled": true,
     "mysql": {"uri": "tcp://127.0.0.1:${mysql_port}", "user": "arena_test", "password_env": "ARENA_MYSQL_PASSWORD", "schema": "arena_m5"},
@@ -126,11 +134,37 @@ grep -q "TCP server listening" "${server_log}"
 "${build_dir}/arena-core-robot" \
   --scenario "${project_root}/scenarios/qa/full-flow-replay.json" \
   --port "${server_port}" \
+  --result-port 49330 \
   --output "${report_dir}/real-data-flow.json"
 kill -TERM "${server_pid}"
 wait "${server_pid}"
 server_pid=""
 grep -q "TCP server stopped" "${server_log}"
+
+robot_match_id="$(python3 -c \
+  'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["operations"][0]["match_id"])' \
+  "${report_dir}/real-data-flow.json")"
+: >"${server_log}"
+ARENA_MYSQL_PASSWORD=arena_test "${build_dir}/arena-core-server" --config "${server_config}" >"${server_log}" 2>&1 &
+server_pid=$!
+for _ in $(seq 1 40); do
+  grep -q "TCP server listening" "${server_log}" && break
+  if ! kill -0 "${server_pid}" >/dev/null 2>&1; then
+    cat "${server_log}"
+    exit 1
+  fi
+  sleep 0.1
+done
+curl --fail --silent --show-error \
+  --header "Authorization: Bearer ${ARENA_RESULT_SERVICE_TOKEN}" \
+  "http://127.0.0.1:49330/internal/v1/match-results/result-${robot_match_id}" \
+  >"${report_dir}/persisted-result-after-restart.json"
+python3 -c \
+  'import json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); assert value["match_id"] == sys.argv[2]' \
+  "${report_dir}/persisted-result-after-restart.json" "${robot_match_id}"
+kill -TERM "${server_pid}"
+wait "${server_pid}"
+server_pid=""
 
 sample_match_id="$(mysql --no-defaults --socket="${mysql_socket}" -uroot arena_m5 -Nse \
   "SELECT match_id FROM settlements ORDER BY committed_at LIMIT 1;")"

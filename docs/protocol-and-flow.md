@@ -15,6 +15,8 @@ sequenceDiagram
   participant S as Session
   participant G as GameService
   participant R as RoomActor
+  participant B as 可信战斗模块 / DemoBattleAdapter
+  participant H as 可信结果 HTTP
   participant D as Settlement
   participant M as MySQL
   participant C as Redis
@@ -23,7 +25,9 @@ sequenceDiagram
   A->>G: QueueMatch(duel, MMR)
   G-->>A: MatchFound(match, room, join token)
   A->>R: JoinRoom + Ready
-  R->>R: 双方 Ready 后冻结确定性结果
+  R->>R: 双方 Ready 后进入 AwaitingResult
+  B->>H: Bearer token + 胜负事实
+  H->>R: 校验并冻结可信结果
   R->>D: Commit(result + fingerprint)
   D->>M: 事务锁玩家、写结算、更新分数
   M-->>D: committed receipt
@@ -32,7 +36,10 @@ sequenceDiagram
     D->>M: 保留 rank_cache_dirty
     D->>C: 后台按 MySQL 目标分重放
   end
-  D-->>A: RoomClosed / GetRank
+  D-->>R: committed receipt
+  R-->>A: MatchResultCommitted
+  A->>G: GetMatchResult(match_id)
+  G-->>A: MatchResult
 ```
 
 ## Session 与重连
@@ -42,8 +49,10 @@ sequenceDiagram
 - 旧连接的迟到关闭不能撤销新 generation；窗口边界到期即拒绝恢复。
 - Room 成员身份独立于具体 TCP 连接，合法重连不会丢失已加入房间的成员资格。
 
-## 服务端权威结果
+## 可信比赛结果边界
 
-客户端协议没有“提交胜负”的消息。双方 Ready 后，RoomActor 使用房间身份、玩家身份、规则版本和种子生成并冻结结果；结算指纹覆盖不可变业务内容。相同指纹重放是幂等，不同指纹冲突会被拒绝。
+玩家协议没有“提交胜负”的消息。双方 Ready 后，RoomActor 停在 `AwaitingResult`；可信战斗模块使用独立 HTTP listener、Bearer service token 和明确网络边界提交胜负。本地 DemoBattleAdapter 也走同一入口，不绕过真实边界。
 
-完整字段与错误码分别见 `proto/arena_core.proto`、`docs/specs/protocol-v1.md` 和 `docs/specs/error-catalog-v1.md`。
+服务端校验 match、room、双方成员、规则版本和完成时间，再生成调用方不可指定的结果指纹。相同结果重放返回既有 receipt，不重复加分；result 或 match 内容冲突会被稳定拒绝。只有 MySQL 事务提交后，玩家才收到 `MatchResultCommitted`，断线后也可以只读查询。
+
+完整边界与字段见 `docs/specs/m9-trusted-result-ingress.md`、`proto/arena_core.proto`、`docs/specs/protocol-v1.md` 和 `docs/specs/error-catalog-v1.md`。

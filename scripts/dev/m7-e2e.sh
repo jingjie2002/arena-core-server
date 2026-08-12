@@ -8,6 +8,7 @@ report_dir="${build_dir}/qa/m7-e2e"
 server_log="${report_dir}/server.log"
 server_pid=""
 robot_pid=""
+export ARENA_RESULT_SERVICE_TOKEN="${ARENA_RESULT_SERVICE_TOKEN:-arena-local-m9-token}"
 
 mkdir -p "${report_dir}"
 
@@ -43,7 +44,11 @@ start_server() {
     fi
     if "${build_dir}/arena-core-robot" --port 49110 --player m7-readiness --heartbeats 1 \
         >/dev/null 2>&1; then
-      return 0
+      if kill -0 "${server_pid}" >/dev/null 2>&1; then
+        return 0
+      fi
+      cat "${server_log}" >&2
+      return 1
     fi
     sleep 0.1
   done

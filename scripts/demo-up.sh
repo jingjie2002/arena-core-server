@@ -40,6 +40,13 @@ cat > "${config_path}" <<JSON
     "static_root": "web/observer",
     "max_events": 2048
   },
+  "trusted_result": {
+    "enabled": true,
+    "bind_address": "127.0.0.1",
+    "port": 9200,
+    "service_token_env": "ARENA_RESULT_SERVICE_TOKEN",
+    "result_wait_timeout_ms": 30000
+  },
   "data": {
     "enabled": true,
     "mysql": {

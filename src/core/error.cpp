@@ -35,7 +35,9 @@ std::string_view error_code_name(const ErrorCode code) noexcept {
     case ErrorCode::kRoomNotJoined: return "ROOM_NOT_JOINED";
     case ErrorCode::kRoomInvalidState: return "ROOM_INVALID_STATE";
     case ErrorCode::kSettlementNotAllowed: return "SETTLEMENT_NOT_ALLOWED";
+    case ErrorCode::kSettlementNotFound: return "SETTLEMENT_NOT_FOUND";
     case ErrorCode::kSettlementConflict: return "SETTLEMENT_CONFLICT";
+    case ErrorCode::kSettlementAccessDenied: return "SETTLEMENT_ACCESS_DENIED";
     case ErrorCode::kSettlementPlayerSetInvalid: return "SETTLEMENT_PLAYER_SET_INVALID";
     case ErrorCode::kSettlementStorageFailed: return "SETTLEMENT_STORAGE_FAILED";
     case ErrorCode::kRankPlayerNotFound: return "RANK_PLAYER_NOT_FOUND";
@@ -59,6 +61,7 @@ bool error_is_retryable(const ErrorCode code) noexcept {
     case ErrorCode::kSessionNotActive:
     case ErrorCode::kMatchTicketExpired:
     case ErrorCode::kMatchCapacityUnavailable:
+    case ErrorCode::kSettlementNotFound:
     case ErrorCode::kSettlementStorageFailed:
     case ErrorCode::kRankCacheUnavailable:
     case ErrorCode::kRuleExecutionFailed:

@@ -35,19 +35,21 @@ Queued --> Expired
 ## 3. Room
 
 ```text
-Created --> Waiting --> Ready --> Running --> Settling --> Closed
+Created --> Waiting --> Ready --> AwaitingResult --> Settling --> Closed
 Created/Waiting/Ready --> Aborted
+AwaitingResult --> ResultTimedOut
 ```
 
 - Created：分配已建立，等待成员加入。
 - Waiting：至少一名成员已加入，但尚未双方 ready。
 - Ready：两名成员均已加入并 ready，马上由所有者推进。
-- Running：服务端执行确定性比赛规则；客户端不能写入结果。
-- Settling：内部结果已冻结，正在提交 MySQL 事务。
+- AwaitingResult：等待可信比赛模块通过独立 HTTP 边界提交胜负；玩家客户端不能写入结果。
+- Settling：可信结果已经校验并冻结，正在提交 MySQL 事务。
 - Closed：事实已提交；Redis 排行榜可能已更新，或存在可修复的 dirty 记录。
+- ResultTimedOut：等待窗口结束仍无可信结果；房间关闭且不改变积分。
 - Aborted：只允许在事实提交前进入，释放容量并按票据策略回队或结束。
 
-Settling 后不得因客户端离线回到前态。MySQL 暂时失败时保持可重试的冻结结果，不重新生成结果。
+Settling 后不得因客户端离线回到前态。MySQL 暂时失败时保持可重试的冻结结果，不重新接收或生成结果；超时房间拒绝迟到结果。
 
 ## 4. Settlement
 
@@ -81,4 +83,5 @@ Draining 顺序固定：停止新连接、停止新排队与撮合、通知并�
 - Room 的 player 集合与 match 成员集合一致。
 - 每个 match 最多一条已提交 settlement。
 - Closed room 的冻结结果不会变化。
+- ResultTimedOut room 不存在 settlement，玩家积分不变。
 - Redis 排行值最终可由 MySQL 恢复，不作为判定结算是否成功的依据。

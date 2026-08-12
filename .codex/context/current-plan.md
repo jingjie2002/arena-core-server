@@ -2,6 +2,30 @@
 
 ## 当前任务
 
+- 任务名称：竞域 v1.1 M9 可信比赛结果接入。
+- 任务模式：按已确认范围执行；复杂任务；`full/build`。
+- 当前结论：M9 实现、自动验证、文档和分支提交均已完成；没有合并 `main` 或上传 GitHub。
+- 明确未做：M10 场景/Run 引擎、Lab Web、Toxiproxy、M11/M12、公开发布。
+
+## M9 完成清单
+
+- [x] 独立可信结果 HTTP listener、Bearer token 与网络边界。
+- [x] Room `AwaitingResult` / `ResultTimedOut` 状态与迟到结果拒绝。
+- [x] result/match/room/成员/规则/时间校验以及幂等和冲突语义。
+- [x] MySQL 已提交 receipt 查询、双玩家推送和参与者只读查询。
+- [x] DemoBattleAdapter、Robot 场景、配置与 Compose 接线。
+- [x] GCC/Clang 90/90、M9 E2E、真实 MySQL/Redis 12/12 和重启查询。
+- [x] 规格、ADR、架构、协议、交接与操作记录。
+
+## 下一步
+
+- 下一里程碑是 M10：参数化场景模型、Run 状态机和 C++ `arena-core-lab` 编排核心。
+- M10 可以在既定 v1.1 范围内自动继续；只有出现范围变化、权限/环境阻塞或最终可见效果验收时才需要用户介入。
+
+---
+
+## v1.1 设计基线（历史）
+
 - 任务名称：竞域 v1.1 产品设计与可接入化
 - 任务模式：从概念开始；产品设计提案已完成，等待用户确认
 - 方案更新时间：2026-08-12（GitHub 调研与正式设计提案完成后）

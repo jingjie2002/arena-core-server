@@ -1,0 +1,39 @@
+{
+  "environment": "m9-trusted-result-qa",
+  "network": {
+    "bind_address": "127.0.0.1",
+    "tcp_port": 49410,
+    "observer_port": 49420,
+    "max_frame_bytes": 65536
+  },
+  "execution": {
+    "io_threads": 4,
+    "storage_threads": 2,
+    "storage_queue_capacity": 256
+  },
+  "logging": {
+    "level": "info",
+    "file": ""
+  },
+  "session": {
+    "hello_timeout_ms": 5000,
+    "idle_timeout_ms": 30000,
+    "reconnect_window_ms": 15000
+  },
+  "observer": {
+    "enabled": true,
+    "demo_mode": false,
+    "static_root": "web/observer",
+    "max_events": 4096
+  },
+  "trusted_result": {
+    "enabled": true,
+    "bind_address": "127.0.0.1",
+    "port": 49430,
+    "service_token_env": "ARENA_RESULT_SERVICE_TOKEN",
+    "result_wait_timeout_ms": 30000
+  },
+  "data": {
+    "enabled": false
+  }
+}

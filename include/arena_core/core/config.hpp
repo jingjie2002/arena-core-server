@@ -74,6 +74,16 @@ struct ObserverConfig {
   std::size_t max_events{2'048};
 };
 
+struct TrustedResultConfig {
+  bool enabled{false};
+  std::string bind_address{"127.0.0.1"};
+  std::uint16_t port{9200};
+  bool allow_non_loopback{false};
+  std::string service_token_env{"ARENA_RESULT_SERVICE_TOKEN"};
+  std::uint32_t result_wait_timeout_ms{900'000};
+  std::size_t max_request_body_bytes{16'384};
+};
+
 struct AppConfig {
   std::string environment{"dev"};
   NetworkConfig network;
@@ -82,6 +92,7 @@ struct AppConfig {
   SessionConfig session;
   DataConfig data;
   ObserverConfig observer;
+  TrustedResultConfig trusted_result;
 };
 
 using ConfigResult = Result<AppConfig>;

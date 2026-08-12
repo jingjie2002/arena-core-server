@@ -68,6 +68,15 @@ class AsyncHarness {
     return future.get();
   }
 
+  Result<SettlementReceipt> query_result(SettlementQuery query) {
+    std::promise<Result<SettlementReceipt>> promise;
+    auto future = promise.get_future();
+    service->async_query_result(
+        io.get_executor(), std::move(query),
+        [&promise](Result<SettlementReceipt> result) { promise.set_value(std::move(result)); });
+    return future.get();
+  }
+
   Error repair() {
     std::promise<Error> promise;
     auto future = promise.get_future();
@@ -101,7 +110,8 @@ SettlementCommand make_command(const std::string& suffix,
                                             "player-" + second + "-" + suffix,
                                             "score-v1",
                                             42,
-                                            fingerprint};
+                                            fingerprint,
+                                            "2026-08-12T05:30:00Z"};
   return command;
 }
 
@@ -168,6 +178,15 @@ TEST(DataIntegrationTest, MySqlFactRedisCacheIdempotencyConflictRepairAndRebuild
     ASSERT_TRUE(duplicate.ok()) << duplicate.error.message;
     EXPECT_TRUE(duplicate.value->idempotent);
     EXPECT_EQ(duplicate.value->scores[0].score, first.value->scores[0].score);
+
+    const auto persisted_by_match = good.query_result({"", command.match_id});
+    ASSERT_TRUE(persisted_by_match.ok()) << persisted_by_match.error.message;
+    EXPECT_EQ(persisted_by_match.value->settlement_id, command.settlement_id);
+    EXPECT_EQ(persisted_by_match.value->finished_at, command.result.finished_at);
+    ASSERT_EQ(persisted_by_match.value->players.size(), 2U);
+    const auto persisted_by_result = good.query_result({command.settlement_id, ""});
+    ASSERT_TRUE(persisted_by_result.ok()) << persisted_by_result.error.message;
+    EXPECT_EQ(persisted_by_result.value->match_id, command.match_id);
 
     auto conflict_command = command;
     conflict_command.result.fingerprint = "abcdefabcdefabcdefabcdefabcdefabcdefabcd";

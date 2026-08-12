@@ -45,22 +45,42 @@ class FakeRepository final : public storage::SettlementRepository {
     };
     auto& winner = score(prepared.command.result.winner_id);
     auto& loser = score(prepared.command.result.loser_id);
+    const auto winner_before = winner;
+    const auto loser_before = loser;
     winner += prepared.winner_delta;
     loser += prepared.loser_delta;
-    SettlementReceipt receipt{prepared.command.settlement_id,
-                              prepared.command.match_id,
-                              prepared.command.result.fingerprint,
-                              prepared.command.result.rule_version,
-                              {{prepared.command.result.winner_id, winner},
-                               {prepared.command.result.loser_id, loser}},
-                              false,
-                              "stale"};
+    SettlementReceipt receipt;
+    receipt.settlement_id = prepared.command.settlement_id;
+    receipt.match_id = prepared.command.match_id;
+    receipt.fingerprint = prepared.command.result.fingerprint;
+    receipt.rule_version = prepared.command.result.rule_version;
+    receipt.scores = {{prepared.command.result.winner_id, winner},
+                      {prepared.command.result.loser_id, loser}};
+    receipt.idempotent = false;
+    receipt.cache_state = "stale";
+    receipt.room_id = prepared.command.room_id;
+    receipt.winner_id = prepared.command.result.winner_id;
+    receipt.loser_id = prepared.command.result.loser_id;
+    receipt.finished_at = prepared.command.result.finished_at;
+    receipt.players = {{receipt.winner_id, winner_before, winner, "win"},
+                       {receipt.loser_id, loser_before, loser, "loss"}};
     receipts.emplace(prepared.command.match_id, receipt);
     for (const auto& value : receipt.scores) {
       dirty[{prepared.command.leaderboard, value.player_id}] = storage::DirtyRankRecord{
           prepared.command.leaderboard, value.player_id, value.score, receipt.settlement_id, 0};
     }
     return Result<SettlementReceipt>::success(std::move(receipt));
+  }
+
+  Result<SettlementReceipt> find_result(const SettlementQuery& query) override {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& [match_id, receipt] : receipts) {
+      if ((!query.match_id.empty() && query.match_id == match_id) ||
+          (!query.settlement_id.empty() && query.settlement_id == receipt.settlement_id)) {
+        return Result<SettlementReceipt>::success(receipt);
+      }
+    }
+    return Result<SettlementReceipt>::failure(make_error(ErrorCode::kSettlementNotFound));
   }
 
   Result<std::vector<storage::DirtyRankRecord>> pending_dirty(std::size_t limit) override {
@@ -168,6 +188,15 @@ class ServiceHarness {
     return future.get();
   }
 
+  Result<SettlementReceipt> query_result(SettlementQuery query) {
+    std::promise<Result<SettlementReceipt>> promise;
+    auto future = promise.get_future();
+    service->async_query_result(
+        io.get_executor(), std::move(query),
+        [&promise](Result<SettlementReceipt> result) { promise.set_value(std::move(result)); });
+    return future.get();
+  }
+
   boost::asio::io_context io;
   std::shared_ptr<storage::StorageExecutor> executor;
   std::shared_ptr<FakeRepository> repository;
@@ -184,7 +213,7 @@ SettlementCommand command(std::string match_id, std::string fingerprint = "finge
   value.match_id = std::move(match_id);
   value.room_id = "room-1";
   value.result = domain::FrozenRoomResult{"player-1", "player-2", "score-v1", 42,
-                                          std::move(fingerprint)};
+                                          std::move(fingerprint), "2026-08-12T05:30:00Z"};
   return value;
 }
 
@@ -206,6 +235,14 @@ TEST(SettlementServiceTest, CommitsOnceUpdatesRankAndTreatsSameFingerprintAsIdem
   ASSERT_TRUE(rank.ok());
   EXPECT_EQ(rank.value->player.rank, 1U);
   EXPECT_EQ(rank.value->player.score, 1'016);
+
+  const auto by_match = harness.query_result({"", "match-1"});
+  ASSERT_TRUE(by_match.ok());
+  EXPECT_EQ(by_match.value->settlement_id, "settlement-match-1");
+  EXPECT_EQ(by_match.value->winner_id, "player-1");
+  const auto by_result = harness.query_result({"settlement-match-1", ""});
+  ASSERT_TRUE(by_result.ok());
+  EXPECT_EQ(by_result.value->players.size(), 2U);
 }
 
 TEST(SettlementServiceTest, RejectsConflictingFingerprintWithoutSecondScoreWrite) {

@@ -31,11 +31,28 @@ struct SettlementReceipt {
   std::vector<rank::RankScore> scores;
   bool idempotent{false};
   std::string cache_state{"fresh"};
+  std::string room_id;
+  std::string winner_id;
+  std::string loser_id;
+  std::string finished_at;
+  struct PlayerResult {
+    std::string player_id;
+    std::int32_t before_score{0};
+    std::int32_t after_score{0};
+    std::string outcome;
+  };
+  std::vector<PlayerResult> players;
+};
+
+struct SettlementQuery {
+  std::string settlement_id;
+  std::string match_id;
 };
 
 class SettlementGateway {
  public:
   using SettlementCompletion = std::function<void(Result<SettlementReceipt>)>;
+  using ResultQueryCompletion = std::function<void(Result<SettlementReceipt>)>;
   using RankCompletion = std::function<void(Result<rank::RankView>)>;
 
   virtual ~SettlementGateway() = default;
@@ -47,6 +64,9 @@ class SettlementGateway {
   virtual void async_query_rank(boost::asio::any_io_executor reply_executor,
                                 rank::RankQuery query,
                                 RankCompletion completion) = 0;
+  virtual void async_query_result(boost::asio::any_io_executor reply_executor,
+                                  SettlementQuery query,
+                                  ResultQueryCompletion completion) = 0;
   virtual Result<std::int32_t> allowed_mmr_delta(std::int64_t waited_seconds) const = 0;
   virtual const std::string& score_rule_version() const noexcept = 0;
 };

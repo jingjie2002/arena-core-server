@@ -12,7 +12,16 @@
 
 namespace arena_core::domain {
 
-enum class RoomState { kCreated, kWaiting, kReady, kRunning, kSettling, kClosed, kAborted };
+enum class RoomState {
+  kCreated,
+  kWaiting,
+  kReady,
+  kAwaitingResult,
+  kSettling,
+  kClosed,
+  kResultTimedOut,
+  kAborted
+};
 
 std::string_view room_state_name(RoomState state) noexcept;
 
@@ -28,6 +37,7 @@ struct FrozenRoomResult {
   std::string rule_version;
   std::uint64_t deterministic_seed{0};
   std::string fingerprint;
+  std::string finished_at;
 };
 
 class Room {
@@ -42,6 +52,7 @@ class Room {
   Error start();
   Error freeze_result(FrozenRoomResult result);
   Error mark_settlement_committed();
+  Error expire_result_wait();
   Error abort();
 
   RoomState state() const noexcept { return state_; }

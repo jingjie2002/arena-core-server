@@ -1,5 +1,18 @@
 # 当前状态
 
+## 2026-08-12 v1.1 M9 可信比赛结果接入已完成
+
+- 当前位于测试分支 `codex/v1.1-scenario-lab`；`main`、既有标签和 GitHub 远端均未改动。
+- Room 在双方 Ready 后进入 `AwaitingResult`，不再内部编造胜负；超时进入 `ResultTimedOut` 且不改变积分。
+- 新增默认关闭的独立可信结果 HTTP listener、Bearer service token、loopback/私有边界限制、提交与只读查询接口。
+- 玩家协议新增已提交结果推送和参与者只读查询，普通客户端仍没有结果写入口。
+- `DemoBattleAdapter` 与 Robot 通过相同 HTTP 边界完成真实端到端流程，没有绕过 GameService/Room/Settlement。
+- GCC/Clang 各 90/90；M9 独立 E2E 通过；真实 MySQL/Redis 12/12，并通过服务重启后的持久结果查询。
+- 非技术说明：`docs/handoffs/M9-trusted-result-ingress.md`；完整操作证据：`docs/operations/M9-automatic-verification-2026-08-12.md`。
+- 当前没有需要用户介入的事项。后续开发项是 M10 场景/Run 引擎，本轮没有提前实施。
+
+---
+
 ## 2026-08-12 v1.1 产品设计提案与 GitHub 调研完成
 
 - 已基于当前 C++17/Boost.Asio/Protobuf/MySQL/Redis/Lua/CMake/Compose 技术栈完成新版本产品设计，没有修改业务代码。

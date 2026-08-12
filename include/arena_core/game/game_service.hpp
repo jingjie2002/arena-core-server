@@ -4,6 +4,7 @@
 #include "arena_core/domain/identifiers.hpp"
 #include "arena_core/domain/match_ticket.hpp"
 #include "arena_core/game/room_actor.hpp"
+#include "arena_core/game/trusted_result.hpp"
 #include "arena_core/session/business_service.hpp"
 #include "arena_core/session/token_generator.hpp"
 #include "arena_core/settlement/settlement_gateway.hpp"
@@ -28,6 +29,7 @@ struct GameServiceOptions {
   std::size_t maximum_active_rooms{1'024};
   std::chrono::milliseconds match_tick{100};
   std::chrono::milliseconds join_token_ttl{std::chrono::seconds(30)};
+  std::chrono::milliseconds result_wait_timeout{std::chrono::minutes(15)};
   std::string room_server{"arena-core-local"};
 };
 
@@ -45,6 +47,10 @@ class GameService final : public session::BusinessService,
   void stop() override;
   void set_player_notifier(PlayerNotifier notifier) override;
   void handle(std::string player_id, protocol::v1::Envelope request, Completion completion) override;
+  void async_submit_trusted_result(TrustedMatchResult result,
+                                   RoomActor::TrustedResultCompletion completion);
+  void async_query_trusted_result(settlement::SettlementQuery query,
+                                  settlement::SettlementGateway::ResultQueryCompletion completion);
 
   std::size_t queued_ticket_count() const noexcept { return queued_ticket_count_.load(); }
   std::size_t active_room_count() const noexcept { return active_room_count_.load(); }
@@ -56,6 +62,9 @@ class GameService final : public session::BusinessService,
   void handle_ready(std::string player_id, protocol::v1::Envelope request, Completion completion);
   void handle_leave(std::string player_id, protocol::v1::Envelope request, Completion completion);
   void handle_rank(std::string player_id, protocol::v1::Envelope request, Completion completion);
+  void handle_match_result(std::string player_id,
+                           protocol::v1::Envelope request,
+                           Completion completion);
   void sweep_and_match();
   bool try_match_once(domain::TimePoint now);
   Result<std::int32_t> allowed_mmr_delta(const domain::MatchTicket& ticket, domain::TimePoint now) const;
@@ -83,6 +92,7 @@ class GameService final : public session::BusinessService,
   std::unordered_map<std::string, std::string> active_ticket_by_player_;
   std::vector<std::string> queue_;
   std::unordered_map<std::string, std::shared_ptr<RoomActor>> rooms_;
+  std::unordered_map<std::string, std::shared_ptr<RoomActor>> rooms_by_match_;
   std::atomic<std::size_t> queued_ticket_count_{0};
   std::atomic<std::size_t> active_room_count_{0};
   bool started_{false};

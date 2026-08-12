@@ -30,11 +30,13 @@
 | ROOM_NOT_FOUND | 否 | 否 | 房间不存在或不可见。 |
 | ROOM_JOIN_TOKEN_INVALID | 否 | 否 | 加入凭证无效、过期或绑定不一致。 |
 | ROOM_PLAYER_NOT_ASSIGNED | 否 | 否 | 玩家不属于该房间。 |
-| ROOM_ALREADY_STARTED | 否 | 否 | 房间已进入 Running 或之后状态。 |
+| ROOM_ALREADY_STARTED | 否 | 否 | 房间已进入 AwaitingResult 或之后状态。 |
 | ROOM_NOT_JOINED | 否 | 否 | 玩家尚未成功加入。 |
 | ROOM_INVALID_STATE | 否 | 否 | 当前状态不允许该操作。 |
 | SETTLEMENT_NOT_ALLOWED | 否 | 否 | 外部来源或错误房间状态试图结算。 |
 | SETTLEMENT_CONFLICT | 否 | 否 | 同一 match 出现不同结果指纹。 |
+| SETTLEMENT_NOT_FOUND | 否 | 否 | result 与活动/已提交 match 均不存在。 |
+| SETTLEMENT_ACCESS_DENIED | 否 | 否 | 非比赛参与者试图查询该比赛结果。 |
 | SETTLEMENT_PLAYER_SET_INVALID | 否 | 否 | 结算玩家与比赛成员不一致。 |
 | SETTLEMENT_STORAGE_FAILED | 是 | 否 | 结算事务未提交，可安全重试。 |
 | RANK_PLAYER_NOT_FOUND | 否 | 否 | 玩家尚无可查询分数。 |

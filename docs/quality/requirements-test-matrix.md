@@ -1,6 +1,6 @@
 # v1 需求—测试矩阵
 
-- 状态：已更新至 v1.0.1 修复证据
+- 状态：已更新至 v1.1 M9 可信结果接入证据
 - 说明：`计划` 表示测试入口尚待对应里程碑实现；实现后必须补充命令和证据链接。
 
 | 需求 | 主要验证 | 层级 | 里程碑 | 当前 |
@@ -18,16 +18,18 @@
 | MAT-004 | 固定时钟候选顺序、扩窗、模式隔离测试 | unit | M4 | 通过：duel 隔离/非法模式/125 分差扩窗 |
 | MAT-005 | 容量耗尽与分配失败回滚测试 | integration/fault | M4/M7 | 通过：容量为零时两票据保持 Queued |
 | ROM-001 | token 伪造、错绑、过期、重放测试 | unit/integration | M4 | 通过：摘要校验、outsider、篡改、过期与幂等请求 |
-| ROM-002 | join/ready 幂等与单次状态推进测试 | unit/integration | M4/M5 | 通过：Room strand；结算失败保持 Settling，重试成功才 Closed |
+| ROM-002 | join/ready 幂等与单次状态推进测试 | unit/integration | M4/M5/M9 | 通过：Room strand；Ready 后只进入 AwaitingResult；结算失败保持 Settling，重试成功才 Closed |
 | ROM-003 | 房间内掉线、恢复和恢复过期测试 | integration | M4 | 通过：成员跨 Session 恢复；过期/abort 由 M2/M3 覆盖 |
-| SET-001 | 协议无提交结果入口、内部来源校验 | contract/unit | M3/M5 | 通过：协议无客户端结果入口；Room 冻结内部结果后调用 SettlementGateway |
+| SET-001 | 玩家协议无结果写入口、可信来源校验 | contract/unit/e2e | M3/M5/M9 | 通过：玩家协议仍无写入口；独立 HTTP listener 要求 Bearer token，Room 只接收匹配的可信结果 |
+| SET-004 | 可信结果等待、通知、查询与超时 | unit/integration/e2e | M9 | 通过：AwaitingResult、双玩家 committed 推送、参与者查询、非参与者拒绝、超时无积分变化 |
+| SET-005 | result/match 幂等与冲突 | unit/integration/e2e | M9 | 通过：相同指纹重放、result 内容冲突、match 多结果冲突及跨 match 复用 result_id 均有稳定语义 |
 | SET-002 | MySQL 提交/回滚及双玩家锁定测试 | integration | M5 | 通过：真实 MySQL 8 提交、异常 JSON 回滚、玩家行锁及无半状态 |
 | SET-003 | 相同指纹重放和不同指纹冲突测试 | integration | M5 | 通过：真实 MySQL 相同指纹幂等、不同指纹稳定冲突 |
 | RNK-001 | 排序、并列、邻近查询测试 | unit/integration | M5 | 通过：内存与真实 Redis 排序、player_id 并列稳定序、邻近查询 |
 | RNK-002 | Redis 失败、dirty 保留、修复重放测试 | integration/fault | M5/M7 | 通过：真实 Redis 失败保留 dirty，恢复后重放/全量重建；20 轮依赖故障序列无半结算 |
 | LUA-001 | golden、版本校验、非法脚本和确定性测试 | unit | M4/M5 | 通过：Redis 原子脚本；嵌入规则版本、边界、确定性、能力隔离和指令预算 |
 | OBS-001 | 快照隔离、事件顺序和慢消费者测试 | unit/integration | M6 | 通过：不可变 JSON 快照、有限事件缺口、trace 顺序、只读 HTTP、真实 TCP→Room→Observer 与 Compose Demo 入口探针 |
-| QA-001 | Robot 完整双玩家链路 | e2e | M7 | 通过：真实 TCP 完成连接、匹配、进房、准备、结算和查榜；8 人并发形成 4 个房间 |
+| QA-001 | Robot 完整双玩家链路 | e2e | M7/M9 | 通过：真实 TCP 完成连接、匹配、进房和准备；DemoBattleAdapter 通过可信 HTTP 提交后完成结算、结果推送与查榜 |
 | QA-002 | 固定种子、依赖故障、回放一致性 | e2e/fault | M7 | 通过：固定场景报告可在重启后回放核对；依赖故障与恢复序列通过 |
 | OPS-001 | 各状态下 SIGTERM 排空与截止测试 | integration | M7 | 通过：覆盖排队、已入房、活跃连接、已完成和真实数据依赖；E2E 最慢退出 105 ms |
 | REL-001 | 空目录 fresh clone 按 README 全量执行 | manual/release | M8 | 通过：本地 Git `c0338e1` 克隆到临时 Linux 目录；直接执行脚本、GCC 80/80、全新 Compose/数据卷与完整 Robot smoke 通过 |

@@ -192,7 +192,8 @@ TEST(RoomTest, CompletesExactlyOneValidLifecycle) {
   ASSERT_FALSE(room.start());
   EXPECT_FALSE(room.start());
 
-  FrozenRoomResult result{"player-1", "player-2", "score-v1", 42, "fingerprint-1"};
+  FrozenRoomResult result{"player-1", "player-2", "score-v1", 42, "fingerprint-1",
+                          "2026-08-12T05:30:00Z"};
   ASSERT_FALSE(room.freeze_result(result));
   EXPECT_FALSE(room.freeze_result(result));
   EXPECT_EQ(room.state(), RoomState::kSettling);
@@ -208,9 +209,10 @@ TEST(RoomTest, RejectsResultWithWrongPlayerSet) {
   ASSERT_FALSE(room.set_ready("player-1"));
   ASSERT_FALSE(room.set_ready("player-2"));
   ASSERT_FALSE(room.start());
-  const auto error = room.freeze_result({"player-1", "outsider", "score-v1", 42, "fingerprint-1"});
+  const auto error = room.freeze_result({"player-1", "outsider", "score-v1", 42,
+                                         "fingerprint-1", "2026-08-12T05:30:00Z"});
   EXPECT_EQ(error.code, ErrorCode::kSettlementPlayerSetInvalid);
-  EXPECT_EQ(room.state(), RoomState::kRunning);
+  EXPECT_EQ(room.state(), RoomState::kAwaitingResult);
 }
 
 TEST(RoomTest, AbortIsIdempotentBeforeStartAndForbiddenAfterStart) {
@@ -226,7 +228,22 @@ TEST(RoomTest, AbortIsIdempotentBeforeStartAndForbiddenAfterStart) {
   ASSERT_FALSE(running_room.set_ready("player-2"));
   ASSERT_FALSE(running_room.start());
   EXPECT_EQ(running_room.abort().code, ErrorCode::kRoomInvalidState);
-  EXPECT_EQ(running_room.state(), RoomState::kRunning);
+  EXPECT_EQ(running_room.state(), RoomState::kAwaitingResult);
+}
+
+TEST(RoomTest, ExpiresWhileAwaitingTrustedResult) {
+  auto room = create_room();
+  ASSERT_FALSE(room.join("player-1"));
+  ASSERT_FALSE(room.join("player-2"));
+  ASSERT_FALSE(room.set_ready("player-1"));
+  ASSERT_FALSE(room.set_ready("player-2"));
+  ASSERT_FALSE(room.start());
+
+  ASSERT_FALSE(room.expire_result_wait());
+  EXPECT_EQ(room.state(), RoomState::kResultTimedOut);
+  EXPECT_EQ(room.freeze_result({"player-1", "player-2", "score-v1", 42,
+                                "fingerprint-1", "2026-08-12T05:30:00Z"}).code,
+            ErrorCode::kSettlementNotAllowed);
 }
 
 }  // namespace

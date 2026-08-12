@@ -45,6 +45,9 @@ class PersistentSettlementService final : public SettlementGateway,
   void async_query_rank(boost::asio::any_io_executor reply_executor,
                         rank::RankQuery query,
                         RankCompletion completion) override;
+  void async_query_result(boost::asio::any_io_executor reply_executor,
+                          SettlementQuery query,
+                          ResultQueryCompletion completion) override;
   Result<std::int32_t> allowed_mmr_delta(std::int64_t waited_seconds) const override;
   const std::string& score_rule_version() const noexcept override;
 

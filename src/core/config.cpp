@@ -93,6 +93,40 @@ Error validate_app_config(const AppConfig& config) {
                         "observer.allow_non_loopback_demo requires observer.demo_mode");
     }
   }
+  if (config.trusted_result.enabled) {
+    if (config.trusted_result.bind_address.empty() || config.trusted_result.port == 0) {
+      return make_error(ErrorCode::kConfigValidationFailed,
+                        "trusted_result listener fields are invalid");
+    }
+    if (config.trusted_result.port == config.network.tcp_port ||
+        (config.observer.enabled && config.trusted_result.port == config.network.observer_port)) {
+      return make_error(ErrorCode::kConfigValidationFailed,
+                        "trusted_result port must differ from active public ports");
+    }
+    const bool loopback = config.trusted_result.bind_address == "127.0.0.1" ||
+                          config.trusted_result.bind_address == "::1";
+    if (!loopback && !config.trusted_result.allow_non_loopback) {
+      return make_error(ErrorCode::kConfigValidationFailed,
+                        "trusted_result requires loopback or an explicit trusted network override");
+    }
+    if (config.trusted_result.service_token_env.empty()) {
+      return make_error(ErrorCode::kConfigValidationFailed,
+                        "trusted_result.service_token_env must not be empty");
+    }
+    if (config.trusted_result.result_wait_timeout_ms < 1'000 ||
+        config.trusted_result.result_wait_timeout_ms > 3'600'000) {
+      return make_error(ErrorCode::kConfigValidationFailed,
+                        "trusted_result.result_wait_timeout_ms must be between 1000 and 3600000");
+    }
+    if (config.trusted_result.max_request_body_bytes < 1'024 ||
+        config.trusted_result.max_request_body_bytes > 65'536) {
+      return make_error(ErrorCode::kConfigValidationFailed,
+                        "trusted_result.max_request_body_bytes must be between 1024 and 65536");
+    }
+  } else if (config.trusted_result.allow_non_loopback) {
+    return make_error(ErrorCode::kConfigValidationFailed,
+                      "trusted_result.allow_non_loopback requires trusted_result.enabled");
+  }
 
   static const std::set<std::string> kLogLevels{"trace", "debug", "info", "warn", "error", "critical", "off"};
   if (kLogLevels.find(config.logging.level) == kLogLevels.end()) {
@@ -161,6 +195,15 @@ ConfigResult load_app_config(const std::filesystem::path& path) {
       read_if_present(*it, "allow_non_loopback_demo", config.observer.allow_non_loopback_demo);
       read_if_present(*it, "static_root", config.observer.static_root);
       read_if_present(*it, "max_events", config.observer.max_events);
+    }
+    if (const auto it = document.find("trusted_result"); it != document.end()) {
+      read_if_present(*it, "enabled", config.trusted_result.enabled);
+      read_if_present(*it, "bind_address", config.trusted_result.bind_address);
+      read_if_present(*it, "port", config.trusted_result.port);
+      read_if_present(*it, "allow_non_loopback", config.trusted_result.allow_non_loopback);
+      read_if_present(*it, "service_token_env", config.trusted_result.service_token_env);
+      read_if_present(*it, "result_wait_timeout_ms", config.trusted_result.result_wait_timeout_ms);
+      read_if_present(*it, "max_request_body_bytes", config.trusted_result.max_request_body_bytes);
     }
 
     if (auto error = validate_app_config(config)) {

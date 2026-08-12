@@ -9,6 +9,7 @@ server_log="${report_dir}/server.log"
 metrics_csv="${report_dir}/metrics.csv"
 server_pid=""
 metrics_pid=""
+export ARENA_RESULT_SERVICE_TOKEN="${ARENA_RESULT_SERVICE_TOKEN:-arena-local-m9-token}"
 
 mkdir -p "${report_dir}"
 

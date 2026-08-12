@@ -1,11 +1,11 @@
 #include "arena_core/game/room_actor.hpp"
 
+#include "arena_core/game/trusted_result.hpp"
 #include "arena_core/observer/observer_store.hpp"
 #include "arena_core/protocol/frame.hpp"
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <utility>
@@ -23,29 +23,6 @@ wire::Envelope response_envelope(const wire::MessageType type) {
   response.set_protocol_version(1);
   response.set_message_type(type);
   return response;
-}
-
-std::uint64_t deterministic_seed(const std::string_view value) noexcept {
-  std::uint64_t hash = 14'695'981'039'346'656'037ULL;
-  for (const unsigned char byte : value) {
-    hash ^= byte;
-    hash *= 1'099'511'628'211ULL;
-  }
-  return hash;
-}
-
-domain::FrozenRoomResult generate_result(const domain::Room& room, const std::string& rule_version) {
-  const auto canonical = room.match_id() + "|" + room.members()[0].player_id + "|" + room.members()[1].player_id +
-                         "|" + rule_version;
-  const auto seed = deterministic_seed(canonical);
-  const auto winner_index = static_cast<std::size_t>(seed % 2U);
-  const auto loser_index = 1U - winner_index;
-  const auto fingerprint = digest_ephemeral_token(canonical + "|" + std::to_string(seed));
-  return {room.members()[winner_index].player_id,
-          room.members()[loser_index].player_id,
-          rule_version,
-          seed,
-          fingerprint};
 }
 
 }  // namespace
@@ -73,6 +50,7 @@ Result<std::shared_ptr<RoomActor>> RoomActor::create(
     std::string first_join_token,
     std::string second_join_token,
     const domain::TimePoint token_deadline,
+    const std::chrono::milliseconds result_wait_timeout,
     PlayerNotifier notifier,
     std::shared_ptr<settlement::SettlementGateway> settlement_gateway,
     ClosedCallback closed_callback,
@@ -88,7 +66,8 @@ Result<std::shared_ptr<RoomActor>> RoomActor::create(
   credentials.emplace(std::move(second_player),
                       JoinCredential{digest_ephemeral_token(second_join_token), token_deadline});
   return Result<std::shared_ptr<RoomActor>>::success(std::shared_ptr<RoomActor>(new RoomActor(
-      io_context, std::move(*room.value), std::move(room_server), std::move(credentials), std::move(notifier),
+      io_context, std::move(*room.value), std::move(room_server), std::move(credentials),
+      result_wait_timeout, std::move(notifier),
       std::move(settlement_gateway), std::move(closed_callback), std::move(observer_store))));
 }
 
@@ -96,14 +75,17 @@ RoomActor::RoomActor(asio::io_context& io_context,
                      domain::Room room,
                      std::string room_server,
                      std::unordered_map<std::string, JoinCredential> credentials,
+                     const std::chrono::milliseconds result_wait_timeout,
                      PlayerNotifier notifier,
                      std::shared_ptr<settlement::SettlementGateway> settlement_gateway,
                      ClosedCallback closed_callback,
                      std::shared_ptr<observer::ObserverStore> observer_store)
     : strand_(asio::make_strand(io_context)),
+      result_timer_(strand_),
       room_(std::move(room)),
       room_server_(std::move(room_server)),
       credentials_(std::move(credentials)),
+      result_wait_timeout_(result_wait_timeout),
       notifier_(std::move(notifier)),
       settlement_gateway_(std::move(settlement_gateway)),
       closed_callback_(std::move(closed_callback)),
@@ -153,8 +135,11 @@ void RoomActor::async_ready(std::string session_player, wire::ReadyRoom command,
       completion(Result<wire::Envelope>::failure(make_error(ErrorCode::kRoomNotFound)));
       return;
     }
-    if (self->room_.state() == domain::RoomState::kSettling) {
-      self->begin_settlement(std::move(completion));
+    if (self->room_.state() == domain::RoomState::kAwaitingResult) {
+      auto payload = self->make_state_payload();
+      auto response = response_envelope(wire::ROOM_STATE_CHANGED);
+      protocol::set_payload(response, payload);
+      completion(Result<wire::Envelope>::success(std::move(response)));
       return;
     }
     if (auto error = self->room_.set_ready(session_player)) {
@@ -166,14 +151,17 @@ void RoomActor::async_ready(std::string session_player, wire::ReadyRoom command,
       auto error = self->room_.start();
       if (!error) {
         self->credentials_.clear();
-        error = self->room_.freeze_result(
-            generate_result(self->room_, self->settlement_gateway_->score_rule_version()));
       }
       if (error) {
         completion(Result<wire::Envelope>::failure(std::move(error)));
         return;
       }
-      self->begin_settlement(std::move(completion));
+      self->arm_result_timeout();
+      auto payload = self->make_state_payload();
+      auto response = response_envelope(wire::ROOM_STATE_CHANGED);
+      protocol::set_payload(response, payload);
+      completion(Result<wire::Envelope>::success(std::move(response)));
+      self->notify_state();
       return;
     }
 
@@ -185,42 +173,115 @@ void RoomActor::async_ready(std::string session_player, wire::ReadyRoom command,
   });
 }
 
-void RoomActor::begin_settlement(Completion completion) {
+void RoomActor::async_submit_result(std::string result_id,
+                                    domain::FrozenRoomResult result,
+                                    TrustedResultCompletion completion) {
+  asio::dispatch(strand_, [self = shared_from_this(), result_id = std::move(result_id),
+                           result = std::move(result), completion = std::move(completion)]() mutable {
+    if (self->stopped_) {
+      completion(Result<settlement::SettlementReceipt>::failure(
+          make_error(ErrorCode::kServerShuttingDown)));
+      return;
+    }
+    if (result.rule_version != self->settlement_gateway_->score_rule_version()) {
+      completion(Result<settlement::SettlementReceipt>::failure(
+          make_error(ErrorCode::kRuleVersionMismatch)));
+      return;
+    }
+    if (self->committed_receipt_.has_value()) {
+      if (self->committed_receipt_->settlement_id != result_id ||
+          self->committed_receipt_->fingerprint != result.fingerprint) {
+        completion(Result<settlement::SettlementReceipt>::failure(
+            make_error(ErrorCode::kSettlementConflict)));
+        return;
+      }
+      auto receipt = *self->committed_receipt_;
+      receipt.idempotent = true;
+      completion(Result<settlement::SettlementReceipt>::success(std::move(receipt)));
+      return;
+    }
+    if (self->room_.state() == domain::RoomState::kSettling) {
+      if (!self->room_.result().has_value() || self->pending_result_id_ != result_id ||
+          self->room_.result()->fingerprint != result.fingerprint) {
+        completion(Result<settlement::SettlementReceipt>::failure(
+            make_error(ErrorCode::kSettlementConflict)));
+        return;
+      }
+      self->result_waiters_.push_back(std::move(completion));
+      if (!self->settlement_in_flight_) {
+        self->begin_settlement();
+      }
+      return;
+    }
+    if (auto error = self->room_.freeze_result(std::move(result))) {
+      completion(Result<settlement::SettlementReceipt>::failure(std::move(error)));
+      return;
+    }
+    self->result_timer_.cancel();
+    self->pending_result_id_ = std::move(result_id);
+    self->result_waiters_.push_back(std::move(completion));
+    self->notify_state();
+    self->begin_settlement();
+  });
+}
+
+void RoomActor::arm_result_timeout() {
+  result_timer_.expires_after(result_wait_timeout_);
+  result_timer_.async_wait(asio::bind_executor(
+      strand_, [self = shared_from_this()](const boost::system::error_code& error) {
+        if (error == asio::error::operation_aborted || self->stopped_ ||
+            self->room_.state() != domain::RoomState::kAwaitingResult) {
+          return;
+        }
+        if (auto timeout_error = self->room_.expire_result_wait()) {
+          static_cast<void>(timeout_error);
+          return;
+        }
+        if (self->observer_store_) {
+          self->observer_store_->publish_event("room", "room.result_timed_out",
+                                               self->room_.match_id(), self->room_.room_id(),
+                                               "trusted result did not arrive before deadline", "warning");
+        }
+        self->notify_state();
+        self->close_once();
+      }));
+}
+
+void RoomActor::begin_settlement() {
   if (!room_.result().has_value()) {
-    completion(Result<wire::Envelope>::failure(make_error(ErrorCode::kSettlementNotAllowed)));
+    complete_result_waiters(Result<settlement::SettlementReceipt>::failure(
+        make_error(ErrorCode::kSettlementNotAllowed)));
     return;
   }
   if (settlement_in_flight_) {
-    completion(Result<wire::Envelope>::failure(make_error(ErrorCode::kServerBusy)));
     return;
   }
   settlement_in_flight_ = true;
   settlement::SettlementCommand command;
-  command.settlement_id = "settlement-" + room_.match_id();
+  command.settlement_id = pending_result_id_;
   command.match_id = room_.match_id();
   command.room_id = room_.room_id();
   command.result = *room_.result();
   settlement_gateway_->async_settle(
       strand_, std::move(command),
-      [self = shared_from_this(), completion = std::move(completion)](
-          Result<settlement::SettlementReceipt> result) mutable {
-        self->complete_settlement(std::move(completion), std::move(result));
+      [self = shared_from_this()](Result<settlement::SettlementReceipt> result) mutable {
+        self->complete_settlement(std::move(result));
       });
 }
 
-void RoomActor::complete_settlement(Completion completion, Result<settlement::SettlementReceipt> result) {
+void RoomActor::complete_settlement(Result<settlement::SettlementReceipt> result) {
   settlement_in_flight_ = false;
   if (!result.ok()) {
     if (observer_store_) {
       observer_store_->publish_event("settlement", "settlement.failed", room_.match_id(),
                                      room_.room_id(), result.error.message, "error");
     }
-    completion(Result<wire::Envelope>::failure(std::move(result.error)));
+    complete_result_waiters(result);
     notify_state();
     return;
   }
   if (auto error = room_.mark_settlement_committed()) {
-    completion(Result<wire::Envelope>::failure(std::move(error)));
+    complete_result_waiters(Result<settlement::SettlementReceipt>::failure(std::move(error)));
     return;
   }
   if (observer_store_ && room_.result().has_value()) {
@@ -248,12 +309,35 @@ void RoomActor::complete_settlement(Completion completion, Result<settlement::Se
                                    room_.match_id(), result.value->settlement_id,
                                    "MySQL result committed before room close", "success");
   }
-  auto payload = make_state_payload();
-  auto response = response_envelope(wire::ROOM_STATE_CHANGED);
-  protocol::set_payload(response, payload);
-  completion(Result<wire::Envelope>::success(std::move(response)));
+  committed_receipt_ = *result.value;
+  notify_result_committed(*result.value);
+  complete_result_waiters(result);
   notify_state();
   close_once();
+}
+
+void RoomActor::complete_result_waiters(const Result<settlement::SettlementReceipt>& result) {
+  auto waiters = std::move(result_waiters_);
+  result_waiters_.clear();
+  for (auto& waiter : waiters) {
+    if (result.ok()) {
+      waiter(Result<settlement::SettlementReceipt>::success(*result.value));
+    } else {
+      waiter(Result<settlement::SettlementReceipt>::failure(result.error));
+    }
+  }
+}
+
+void RoomActor::notify_result_committed(const settlement::SettlementReceipt& receipt) {
+  if (!notifier_) {
+    return;
+  }
+  const auto payload = make_match_result_view(receipt);
+  for (const auto& member : room_.members()) {
+    auto event = response_envelope(wire::MATCH_RESULT_COMMITTED);
+    protocol::set_payload(event, payload);
+    notifier_(member.player_id, std::move(event));
+  }
 }
 
 void RoomActor::async_leave(std::string session_player, wire::LeaveRoom command, Completion completion) {
@@ -279,7 +363,12 @@ void RoomActor::async_leave(std::string session_player, wire::LeaveRoom command,
 }
 
 void RoomActor::stop() {
-  asio::dispatch(strand_, [self = shared_from_this()] { self->stopped_ = true; });
+  asio::dispatch(strand_, [self = shared_from_this()] {
+    self->stopped_ = true;
+    self->result_timer_.cancel();
+    self->complete_result_waiters(Result<settlement::SettlementReceipt>::failure(
+        make_error(ErrorCode::kServerShuttingDown)));
+  });
 }
 
 wire::RoomStateChanged RoomActor::make_state_payload() const {

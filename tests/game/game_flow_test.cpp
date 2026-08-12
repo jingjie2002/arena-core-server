@@ -75,6 +75,30 @@ class RunningGameServer {
   std::shared_ptr<GameService> game_service() const { return game_service_; }
   std::shared_ptr<observer::ObserverStore> observer_store() const { return observer_store_; }
 
+  Result<settlement::SettlementReceipt> submit_result(const wire::MatchFound& match,
+                                                       std::string winner_id,
+                                                       std::string loser_id) {
+    TrustedMatchResult result;
+    result.result_id = "result-" + match.match_id();
+    result.match_id = match.match_id();
+    result.room_id = match.room_id();
+    result.winner_id = std::move(winner_id);
+    result.loser_id = std::move(loser_id);
+    result.rule_version = "score-v1";
+    result.finished_at = "2026-08-12T05:30:00Z";
+    std::promise<Result<settlement::SettlementReceipt>> promise;
+    auto future = promise.get_future();
+    game_service_->async_submit_trusted_result(
+        std::move(result), [&promise](Result<settlement::SettlementReceipt> receipt) {
+          promise.set_value(std::move(receipt));
+        });
+    if (future.wait_for(2s) != std::future_status::ready) {
+      return Result<settlement::SettlementReceipt>::failure(
+          make_error(ErrorCode::kInternalError, "result submission timed out"));
+    }
+    return future.get();
+  }
+
   bool stop_and_wait_for_connections() {
     std::promise<void> requested;
     auto completion = requested.get_future();
@@ -256,7 +280,7 @@ wire::MatchFound parse_match_found(const wire::Envelope& envelope) {
   return found.ok() ? std::move(*found.value) : wire::MatchFound{};
 }
 
-TEST(GameFlowTest, CompletesMatchJoinReadyAndDeterministicEnd) {
+TEST(GameFlowTest, CompletesMatchJoinReadyAndTrustedResultEnd) {
   RunningGameServer server;
   GameClient first(server.port(), "player-1");
   GameClient second(server.port(), "player-2");
@@ -320,15 +344,33 @@ TEST(GameFlowTest, CompletesMatchJoinReadyAndDeterministicEnd) {
   ASSERT_EQ(final_response.message_type(), wire::ROOM_STATE_CHANGED);
   auto final_state = protocol::parse_payload<wire::RoomStateChanged>(final_response);
   ASSERT_TRUE(final_state.ok());
-  EXPECT_EQ(final_state.value->state(), "Closed");
-  EXPECT_TRUE(final_state.value->winner_id() == first.player_id() ||
-              final_state.value->winner_id() == second.player_id());
-  EXPECT_NE(final_state.value->winner_id(), final_state.value->loser_id());
+  EXPECT_EQ(final_state.value->state(), "AwaitingResult");
+
+  const auto committed = server.submit_result(first_found, first.player_id(), second.player_id());
+  ASSERT_TRUE(committed.ok()) << committed.error.message;
+  EXPECT_FALSE(committed.value->idempotent);
+
+  const auto first_result = protocol::parse_payload<wire::MatchResultView>(
+      first.receive_push(wire::MATCH_RESULT_COMMITTED));
+  const auto second_result = protocol::parse_payload<wire::MatchResultView>(
+      second.receive_push(wire::MATCH_RESULT_COMMITTED));
+  ASSERT_TRUE(first_result.ok());
+  ASSERT_TRUE(second_result.ok());
+  EXPECT_EQ(first_result.value->winner_id(), first.player_id());
+  EXPECT_EQ(second_result.value->result_id(), committed.value->settlement_id);
 
   const auto first_closed = first.receive_room_state("Closed");
   const auto second_closed = second.receive_room_state("Closed");
-  EXPECT_EQ(first_closed.winner_id(), final_state.value->winner_id());
-  EXPECT_EQ(second_closed.winner_id(), final_state.value->winner_id());
+  EXPECT_EQ(first_closed.winner_id(), first.player_id());
+  EXPECT_EQ(second_closed.winner_id(), first.player_id());
+
+  wire::GetMatchResult query;
+  query.set_match_id(first_found.match_id());
+  const auto query_response = first.receive_response(first.send(wire::GET_MATCH_RESULT, query));
+  ASSERT_EQ(query_response.message_type(), wire::MATCH_RESULT);
+  const auto queried = protocol::parse_payload<wire::MatchResultView>(query_response);
+  ASSERT_TRUE(queried.ok());
+  EXPECT_EQ(queried.value->result_id(), committed.value->settlement_id);
 
   const auto observer_rooms = server.observer_store()->rooms_json();
   ASSERT_EQ(observer_rooms.at("total"), 1);
@@ -459,7 +501,11 @@ TEST(GameFlowTest, KeepsRoomMembershipAcrossSessionReconnect) {
   const auto final_response = second.receive_response(second.send(wire::READY_ROOM, ready));
   auto final_state = protocol::parse_payload<wire::RoomStateChanged>(final_response);
   ASSERT_TRUE(final_state.ok());
-  EXPECT_EQ(final_state.value->state(), "Closed");
+  EXPECT_EQ(final_state.value->state(), "AwaitingResult");
+  const auto committed = server.submit_result(first_found, resumed.player_id(), second.player_id());
+  ASSERT_TRUE(committed.ok()) << committed.error.message;
+  EXPECT_EQ(resumed.receive_room_state("Closed").winner_id(), resumed.player_id());
+  EXPECT_EQ(second.receive_room_state("Closed").winner_id(), resumed.player_id());
 }
 
 TEST(GameFlowTest, GracefulStopDrainsQueuedAndJoinedStatesIdempotently) {

@@ -14,6 +14,7 @@
 #include <cppconn/statement.h>
 #include <mysql_connection.h>
 #include <mysql_driver.h>
+#include <nlohmann/json.hpp>
 
 namespace arena_core::storage {
 namespace {
@@ -45,39 +46,84 @@ Error rollback(sql::Connection& connection, Error error) {
   return error;
 }
 
+Result<settlement::SettlementReceipt> materialize_receipt(
+    sql::Connection& connection,
+    std::string settlement_id,
+    std::string match_id,
+    std::string fingerprint,
+    std::string rule_version,
+    std::string room_id,
+    const std::string& result_json,
+    const bool idempotent) {
+  const auto document = nlohmann::json::parse(result_json, nullptr, false);
+  if (document.is_discarded() || !document.is_object()) {
+    return Result<settlement::SettlementReceipt>::failure(
+        make_error(ErrorCode::kSettlementStorageFailed, "stored result JSON is invalid"));
+  }
+  settlement::SettlementReceipt receipt;
+  receipt.settlement_id = std::move(settlement_id);
+  receipt.match_id = std::move(match_id);
+  receipt.fingerprint = std::move(fingerprint);
+  receipt.rule_version = std::move(rule_version);
+  receipt.room_id = std::move(room_id);
+  receipt.winner_id = document.value("winner_id", std::string{});
+  receipt.loser_id = document.value("loser_id", std::string{});
+  receipt.finished_at = document.value("finished_at", std::string{});
+  receipt.idempotent = idempotent;
+  PreparedStatement players(connection.prepareStatement(
+      "SELECT player_id,before_score,after_score,outcome FROM match_players WHERE match_id=? ORDER BY seat"));
+  players->setString(1, receipt.match_id);
+  ResultSet player_rows(players->executeQuery());
+  while (player_rows->next()) {
+    const auto player_id = player_rows->getString("player_id");
+    const auto before_score = player_rows->getInt("before_score");
+    const auto after_score = player_rows->getInt("after_score");
+    receipt.scores.push_back(rank::RankScore{player_id, after_score});
+    receipt.players.push_back({player_id, before_score, after_score,
+                               player_rows->getString("outcome")});
+  }
+  if (receipt.scores.size() != 2U || receipt.winner_id.empty() || receipt.loser_id.empty() ||
+      receipt.finished_at.empty()) {
+    return Result<settlement::SettlementReceipt>::failure(
+        make_error(ErrorCode::kSettlementStorageFailed, "stored settlement player set is incomplete"));
+  }
+  PreparedStatement dirty(connection.prepareStatement(
+      "SELECT settlement_id FROM rank_cache_dirty WHERE settlement_id=? LIMIT 1"));
+  dirty->setString(1, receipt.settlement_id);
+  ResultSet dirty_rows(dirty->executeQuery());
+  receipt.cache_state = dirty_rows->next() ? "stale" : "fresh";
+  return Result<settlement::SettlementReceipt>::success(std::move(receipt));
+}
+
 Result<settlement::SettlementReceipt> read_existing(sql::Connection& connection,
                                                      const PreparedSettlement& prepared) {
   PreparedStatement statement(connection.prepareStatement(
-      "SELECT settlement_id,fingerprint,rule_version FROM settlements WHERE match_id=? FOR UPDATE"));
+      "SELECT s.settlement_id,s.fingerprint,s.rule_version,s.result_json,m.room_id "
+      "FROM settlements s JOIN matches m ON m.match_id=s.match_id WHERE s.match_id=? FOR UPDATE"));
   statement->setString(1, prepared.command.match_id);
   ResultSet rows(statement->executeQuery());
   if (!rows->next()) {
     return Result<settlement::SettlementReceipt>::failure({});
   }
-  if (rows->getString("fingerprint") != prepared.command.result.fingerprint) {
+  if (rows->getString("fingerprint") != prepared.command.result.fingerprint ||
+      rows->getString("settlement_id") != prepared.command.settlement_id) {
     return Result<settlement::SettlementReceipt>::failure(make_error(ErrorCode::kSettlementConflict));
   }
+  return materialize_receipt(connection, rows->getString("settlement_id"),
+                             prepared.command.match_id, rows->getString("fingerprint"),
+                             rows->getString("rule_version"), rows->getString("room_id"),
+                             rows->getString("result_json"), true);
+}
 
-  settlement::SettlementReceipt receipt;
-  receipt.settlement_id = rows->getString("settlement_id");
-  receipt.match_id = prepared.command.match_id;
-  receipt.fingerprint = rows->getString("fingerprint");
-  receipt.rule_version = rows->getString("rule_version");
-  receipt.idempotent = true;
-  receipt.cache_state = "stale";
-  PreparedStatement players(connection.prepareStatement(
-      "SELECT player_id,after_score FROM match_players WHERE match_id=? ORDER BY seat"));
-  players->setString(1, prepared.command.match_id);
-  ResultSet player_rows(players->executeQuery());
-  while (player_rows->next()) {
-    receipt.scores.push_back(
-        rank::RankScore{player_rows->getString("player_id"), player_rows->getInt("after_score")});
+Error reject_reused_settlement_id(sql::Connection& connection, const PreparedSettlement& prepared) {
+  PreparedStatement statement(connection.prepareStatement(
+      "SELECT match_id FROM settlements WHERE settlement_id=? FOR UPDATE"));
+  statement->setString(1, prepared.command.settlement_id);
+  ResultSet rows(statement->executeQuery());
+  if (rows->next() && rows->getString("match_id") != prepared.command.match_id) {
+    return make_error(ErrorCode::kSettlementConflict, "result id is already used by another match");
   }
-  if (receipt.scores.size() != 2U) {
-    return Result<settlement::SettlementReceipt>::failure(
-        make_error(ErrorCode::kSettlementStorageFailed, "stored settlement player set is incomplete"));
-  }
-  return Result<settlement::SettlementReceipt>::success(std::move(receipt));
+  return {};
 }
 
 void ensure_player(sql::Connection& connection, const std::string& player_id) {
@@ -188,6 +234,9 @@ Result<settlement::SettlementReceipt> MySqlSettlementRepository::settle(const Pr
     if (existing.error) {
       return Result<settlement::SettlementReceipt>::failure(rollback(connection, std::move(existing.error)));
     }
+    if (auto error = reject_reused_settlement_id(connection, prepared)) {
+      return Result<settlement::SettlementReceipt>::failure(rollback(connection, std::move(error)));
+    }
 
     ensure_player(connection, prepared.command.result.winner_id);
     ensure_player(connection, prepared.command.result.loser_id);
@@ -227,18 +276,59 @@ Result<settlement::SettlementReceipt> MySqlSettlementRepository::settle(const Pr
     connection.commit();
     connection.setAutoCommit(true);
 
-    settlement::SettlementReceipt receipt{prepared.command.settlement_id,
-                                          prepared.command.match_id,
-                                          prepared.command.result.fingerprint,
-                                          prepared.command.result.rule_version,
-                                          {{prepared.command.result.winner_id, winner_after},
-                                           {prepared.command.result.loser_id, loser_after}},
-                                          false,
-                                          "stale"};
+    settlement::SettlementReceipt receipt;
+    receipt.settlement_id = prepared.command.settlement_id;
+    receipt.match_id = prepared.command.match_id;
+    receipt.fingerprint = prepared.command.result.fingerprint;
+    receipt.rule_version = prepared.command.result.rule_version;
+    receipt.scores = {{prepared.command.result.winner_id, winner_after},
+                      {prepared.command.result.loser_id, loser_after}};
+    receipt.idempotent = false;
+    receipt.cache_state = "stale";
+    receipt.room_id = prepared.command.room_id;
+    receipt.winner_id = prepared.command.result.winner_id;
+    receipt.loser_id = prepared.command.result.loser_id;
+    receipt.finished_at = prepared.command.result.finished_at;
+    receipt.players = {{prepared.command.result.winner_id, winner_before, winner_after, "win"},
+                       {prepared.command.result.loser_id, loser_before, loser_after, "loss"}};
     return Result<settlement::SettlementReceipt>::success(std::move(receipt));
   } catch (const sql::SQLException&) {
     return Result<settlement::SettlementReceipt>::failure(rollback(
         connection, make_error(ErrorCode::kSettlementStorageFailed, "MySQL settlement transaction failed")));
+  }
+}
+
+Result<settlement::SettlementReceipt> MySqlSettlementRepository::find_result(
+    const settlement::SettlementQuery& query) {
+  const bool by_settlement = !query.settlement_id.empty() && query.match_id.empty();
+  const bool by_match = query.settlement_id.empty() && !query.match_id.empty();
+  if (!by_settlement && !by_match) {
+    return Result<settlement::SettlementReceipt>::failure(
+        make_error(ErrorCode::kSettlementNotFound, "result query must select exactly one identifier"));
+  }
+  auto connection = connect(config_);
+  if (!connection.ok()) {
+    return Result<settlement::SettlementReceipt>::failure(std::move(connection.error));
+  }
+  try {
+    const auto query_sql = by_settlement
+        ? "SELECT s.settlement_id,s.match_id,s.fingerprint,s.rule_version,s.result_json,m.room_id "
+          "FROM settlements s JOIN matches m ON m.match_id=s.match_id WHERE s.settlement_id=?"
+        : "SELECT s.settlement_id,s.match_id,s.fingerprint,s.rule_version,s.result_json,m.room_id "
+          "FROM settlements s JOIN matches m ON m.match_id=s.match_id WHERE s.match_id=?";
+    PreparedStatement statement((*connection.value)->prepareStatement(query_sql));
+    statement->setString(1, by_settlement ? query.settlement_id : query.match_id);
+    ResultSet rows(statement->executeQuery());
+    if (!rows->next()) {
+      return Result<settlement::SettlementReceipt>::failure(make_error(ErrorCode::kSettlementNotFound));
+    }
+    return materialize_receipt(**connection.value, rows->getString("settlement_id"),
+                               rows->getString("match_id"), rows->getString("fingerprint"),
+                               rows->getString("rule_version"), rows->getString("room_id"),
+                               rows->getString("result_json"), false);
+  } catch (const sql::SQLException&) {
+    return Result<settlement::SettlementReceipt>::failure(
+        make_error(ErrorCode::kSettlementStorageFailed, "MySQL result query failed"));
   }
 }
 

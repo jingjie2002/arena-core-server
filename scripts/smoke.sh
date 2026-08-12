@@ -15,6 +15,8 @@ docker compose exec -T arena-core /opt/arena-core/bin/arena-core-robot \
   --scenario /opt/arena-core/scenarios/qa/full-flow-replay.json \
   --host 127.0.0.1 \
   --port 9100 \
+  --result-host 127.0.0.1 \
+  --result-port 9200 \
   --output /opt/arena-core/.runtime/smoke-report.json
 
 python3 - "${report_path}" <<'PY'

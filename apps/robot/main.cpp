@@ -30,6 +30,10 @@ struct CliOptions {
   std::optional<std::string> output_path;
   bool host_overridden{false};
   bool port_overridden{false};
+  std::string result_host{"127.0.0.1"};
+  std::uint16_t result_port{9'200};
+  bool result_host_overridden{false};
+  bool result_port_overridden{false};
 };
 
 wire::Envelope read_envelope(tcp::socket& socket) {
@@ -105,7 +109,8 @@ void print_usage() {
   std::cerr
       << "Usage: arena-core-robot [--host HOST] [--port PORT] [--player ID] [--heartbeats N]\n"
       << "       arena-core-robot --scenario FILE [--host HOST] [--port PORT] [--output REPORT]\n"
-      << "       arena-core-robot --replay REPORT [--host HOST] [--port PORT] [--output REPORT]\n";
+      << "       arena-core-robot --replay REPORT [--host HOST] [--port PORT] [--output REPORT]\n"
+      << "       scenario options: [--result-host HOST] [--result-port PORT]\n";
 }
 
 CliOptions parse_cli(const int argc, char** argv) {
@@ -128,6 +133,16 @@ CliOptions parse_cli(const int argc, char** argv) {
       }
       options.port = static_cast<std::uint16_t>(value);
       options.port_overridden = true;
+    } else if (argument == "--result-host") {
+      options.result_host = require_value(argument);
+      options.result_host_overridden = true;
+    } else if (argument == "--result-port") {
+      const auto value = std::stoul(require_value(argument));
+      if (value == 0U || value > 65'535U) {
+        throw std::out_of_range("result port out of range");
+      }
+      options.result_port = static_cast<std::uint16_t>(value);
+      options.result_port_overridden = true;
     } else if (argument == "--player") {
       options.player_id = require_value(argument);
     } else if (argument == "--heartbeats") {
@@ -170,6 +185,12 @@ int run_scenario(const CliOptions& options) {
   }
   if (options.port_overridden) {
     scenario.port = options.port;
+  }
+  if (options.result_host_overridden) {
+    scenario.result_host = options.result_host;
+  }
+  if (options.result_port_overridden) {
+    scenario.result_port = options.result_port;
   }
 
   auto report = arena_core::qa::run_robot_scenario(scenario);

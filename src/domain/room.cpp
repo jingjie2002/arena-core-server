@@ -12,9 +12,10 @@ std::string_view room_state_name(const RoomState state) noexcept {
     case RoomState::kCreated: return "Created";
     case RoomState::kWaiting: return "Waiting";
     case RoomState::kReady: return "Ready";
-    case RoomState::kRunning: return "Running";
+    case RoomState::kAwaitingResult: return "AwaitingResult";
     case RoomState::kSettling: return "Settling";
     case RoomState::kClosed: return "Closed";
+    case RoomState::kResultTimedOut: return "ResultTimedOut";
     case RoomState::kAborted: return "Aborted";
   }
   return "Aborted";
@@ -58,7 +59,8 @@ bool Room::all_ready() const noexcept {
 }
 
 Error Room::join(const std::string_view player_id) {
-  if (state_ == RoomState::kRunning || state_ == RoomState::kSettling || state_ == RoomState::kClosed) {
+  if (state_ == RoomState::kAwaitingResult || state_ == RoomState::kSettling ||
+      state_ == RoomState::kClosed || state_ == RoomState::kResultTimedOut) {
     return make_error(ErrorCode::kRoomAlreadyStarted);
   }
   if (state_ == RoomState::kAborted) {
@@ -94,13 +96,13 @@ Error Room::set_ready(const std::string_view player_id) {
 }
 
 Error Room::start() {
-  if (state_ == RoomState::kRunning) {
+  if (state_ == RoomState::kAwaitingResult) {
     return {};
   }
   if (state_ != RoomState::kReady || !all_joined() || !all_ready()) {
     return make_error(ErrorCode::kRoomInvalidState, "room is not ready");
   }
-  state_ = RoomState::kRunning;
+  state_ = RoomState::kAwaitingResult;
   return {};
 }
 
@@ -108,11 +110,12 @@ Error Room::freeze_result(FrozenRoomResult result) {
   if (state_ == RoomState::kSettling && result_.has_value() && result_->fingerprint == result.fingerprint) {
     return {};
   }
-  if (state_ != RoomState::kRunning) {
+  if (state_ != RoomState::kAwaitingResult) {
     return make_error(ErrorCode::kSettlementNotAllowed);
   }
   if (result.winner_id == result.loser_id || find_member(result.winner_id) == nullptr ||
-      find_member(result.loser_id) == nullptr || result.rule_version.empty() || result.fingerprint.empty()) {
+      find_member(result.loser_id) == nullptr || result.rule_version.empty() || result.fingerprint.empty() ||
+      result.finished_at.empty()) {
     return make_error(ErrorCode::kSettlementPlayerSetInvalid);
   }
   result_ = std::move(result);
@@ -131,11 +134,23 @@ Error Room::mark_settlement_committed() {
   return {};
 }
 
+Error Room::expire_result_wait() {
+  if (state_ == RoomState::kResultTimedOut) {
+    return {};
+  }
+  if (state_ != RoomState::kAwaitingResult || result_.has_value()) {
+    return make_error(ErrorCode::kRoomInvalidState, "room is not awaiting a result");
+  }
+  state_ = RoomState::kResultTimedOut;
+  return {};
+}
+
 Error Room::abort() {
   if (state_ == RoomState::kAborted) {
     return {};
   }
-  if (state_ == RoomState::kRunning || state_ == RoomState::kSettling || state_ == RoomState::kClosed) {
+  if (state_ == RoomState::kAwaitingResult || state_ == RoomState::kSettling ||
+      state_ == RoomState::kClosed || state_ == RoomState::kResultTimedOut) {
     return make_error(ErrorCode::kRoomInvalidState, "room cannot abort after start");
   }
   state_ = RoomState::kAborted;

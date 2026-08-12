@@ -166,6 +166,8 @@ arena_core_apply_compiler_policy(arena_core_session)
 add_library(arena_core_game STATIC
   src/game/game_service.cpp
   src/game/room_actor.cpp
+  src/game/trusted_result.cpp
+  src/game/trusted_result_http_server.cpp
 )
 add_library(arena_core::game ALIAS arena_core_game)
 target_include_directories(arena_core_game
@@ -188,7 +190,10 @@ add_executable(arena-core-server apps/server/main.cpp)
 target_link_libraries(arena-core-server PRIVATE arena_core::game arena_core::observer)
 arena_core_apply_compiler_policy(arena-core-server)
 
-add_library(arena_core_qa STATIC src/qa/robot_scenario.cpp)
+add_library(arena_core_qa STATIC
+  src/qa/demo_battle_adapter.cpp
+  src/qa/robot_scenario.cpp
+)
 add_library(arena_core::qa ALIAS arena_core_qa)
 target_include_directories(arena_core_qa
   PUBLIC
@@ -254,6 +259,7 @@ if(ARENA_BUILD_TESTS)
   add_executable(arena_core_game_tests
     tests/game/game_flow_test.cpp
     tests/game/room_settlement_test.cpp
+    tests/game/trusted_result_http_test.cpp
   )
   target_link_libraries(arena_core_game_tests PRIVATE arena_core::game GTest::gtest_main)
   arena_core_apply_compiler_policy(arena_core_game_tests)

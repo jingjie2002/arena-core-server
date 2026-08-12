@@ -49,6 +49,26 @@ TEST(ConfigTest, LoadsValidConfigurationAndDefaultsMissingFields) {
   EXPECT_FALSE(result.value->data.enabled);
   EXPECT_TRUE(result.value->observer.enabled);
   EXPECT_FALSE(result.value->observer.demo_mode);
+  EXPECT_FALSE(result.value->trusted_result.enabled);
+}
+
+TEST(ConfigTest, LoadsTrustedResultWithoutStoringCredential) {
+  TemporaryConfig file(R"({
+    "trusted_result": {
+      "enabled": true,
+      "bind_address": "127.0.0.1",
+      "port": 9300,
+      "service_token_env": "RESULT_SECRET",
+      "result_wait_timeout_ms": 20000,
+      "max_request_body_bytes": 4096
+    }
+  })");
+  const auto result = load_app_config(file.path());
+  ASSERT_TRUE(result.ok()) << result.error.message;
+  EXPECT_TRUE(result.value->trusted_result.enabled);
+  EXPECT_EQ(result.value->trusted_result.service_token_env, "RESULT_SECRET");
+  EXPECT_EQ(result.value->trusted_result.result_wait_timeout_ms, 20'000U);
+  EXPECT_EQ(result.value->trusted_result.max_request_body_bytes, 4'096U);
 }
 
 TEST(ConfigTest, LoadsDataConnectionNamesWithoutEmbeddingPasswords) {
@@ -105,6 +125,19 @@ TEST(ConfigTest, RejectsTrustedProxyOverrideWhenDemoModeIsDisabled) {
   config.observer.allow_non_loopback_demo = true;
   const auto error = validate_app_config(config);
   EXPECT_EQ(error.code, ErrorCode::kConfigValidationFailed);
+}
+
+TEST(ConfigTest, ProtectsTrustedResultNetworkBoundaryAndPortSeparation) {
+  AppConfig config;
+  config.trusted_result.enabled = true;
+  config.trusted_result.bind_address = "0.0.0.0";
+  EXPECT_EQ(validate_app_config(config).code, ErrorCode::kConfigValidationFailed);
+
+  config.trusted_result.allow_non_loopback = true;
+  EXPECT_FALSE(validate_app_config(config));
+
+  config.trusted_result.port = config.network.tcp_port;
+  EXPECT_EQ(validate_app_config(config).code, ErrorCode::kConfigValidationFailed);
 }
 
 TEST(ConfigTest, ReportsMissingFile) {

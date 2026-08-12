@@ -2,6 +2,7 @@
   "name": "preflight-500-connections-250-rooms-5-seconds",
   "host": "127.0.0.1",
   "port": 49210,
+  "result_port": 49230,
   "seed": 20260815,
   "pair_count": 250,
   "rounds_per_pair": 1,

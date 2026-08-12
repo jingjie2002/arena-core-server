@@ -32,6 +32,7 @@ class SettlementRepository {
   virtual ~SettlementRepository() = default;
 
   virtual Result<settlement::SettlementReceipt> settle(const PreparedSettlement& settlement) = 0;
+  virtual Result<settlement::SettlementReceipt> find_result(const settlement::SettlementQuery& query) = 0;
   virtual Result<std::vector<DirtyRankRecord>> pending_dirty(std::size_t limit) = 0;
   virtual Error resolve_dirty(const DirtyRankRecord& record) = 0;
   virtual Error resolve_dirty_score(const std::string& leaderboard, const rank::RankScore& score) = 0;
@@ -51,6 +52,7 @@ class MySqlSettlementRepository final : public SettlementRepository {
   explicit MySqlSettlementRepository(MySqlConfig config);
 
   Result<settlement::SettlementReceipt> settle(const PreparedSettlement& settlement) override;
+  Result<settlement::SettlementReceipt> find_result(const settlement::SettlementQuery& query) override;
   Result<std::vector<DirtyRankRecord>> pending_dirty(std::size_t limit) override;
   Error resolve_dirty(const DirtyRankRecord& record) override;
   Error resolve_dirty_score(const std::string& leaderboard, const rank::RankScore& score) override;

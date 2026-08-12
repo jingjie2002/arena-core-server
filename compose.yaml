@@ -57,6 +57,7 @@ services:
     environment:
       ARENA_MYSQL_PASSWORD: ${ARENA_DEMO_MYSQL_PASSWORD:-arena_demo_local}
       ARENA_REDIS_PASSWORD: ""
+      ARENA_RESULT_SERVICE_TOKEN: ${ARENA_RESULT_SERVICE_TOKEN:-arena-local-m9-token}
     volumes:
       - ./.runtime:/opt/arena-core/.runtime
     depends_on:

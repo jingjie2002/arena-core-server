@@ -26,6 +26,15 @@
     "static_root": "web/observer",
     "max_events": 2048
   },
+  "trusted_result": {
+    "enabled": true,
+    "bind_address": "127.0.0.1",
+    "port": 9200,
+    "allow_non_loopback": false,
+    "service_token_env": "ARENA_RESULT_SERVICE_TOKEN",
+    "result_wait_timeout_ms": 900000,
+    "max_request_body_bytes": 16384
+  },
   "data": {
     "enabled": true,
     "mysql": {

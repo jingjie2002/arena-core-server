@@ -45,10 +45,12 @@ payload: bytes
 | `JoinRoom` | `RoomJoined` | match、room、server、player 和 join token 全量校验。 |
 | `ReadyRoom` | `RoomStateChanged` | 幂等设置本玩家 ready，并广播快照。 |
 | `LeaveRoom` | `RoomLeft` | 根据房间状态执行离开或终止策略。 |
+| `GetMatchResult` | `MatchResult` | 参与者按 match 查询已提交结果；不产生副作用。 |
 | `GetRank` | `RankResult` | 查询玩家当前分数、名次和可选邻近榜单。 |
+| 无 | `MatchResultCommitted` | MySQL 事务提交成功后向在线参与者推送结果与积分变化。 |
 | 无 | `ErrorResponse` | `code`、安全的 `message`、`retryable`、关联 request id。 |
 
-客户端不存在“提交比赛结果”消息。结果由 Room 在双方准备后以固定种子和版本化规则内部生成。
+玩家协议不存在“提交比赛结果”消息。双方 Ready 后 Room 进入 `AwaitingResult`；只有独立、受保护的可信比赛结果 HTTP 入口可以提交胜负。玩家只能接收或查询已提交事实。
 
 ## 4. 建连与恢复
 
@@ -75,7 +77,8 @@ payload: bytes
 | 心跳建议间隔 | 10 秒 |
 | 无活动超时 | 30 秒 |
 | 重连窗口 | 15 秒 |
-| 加入凭证有效期 | 30 秒或房间进入 Running，以先到者为准 |
+| 加入凭证有效期 | 30 秒或房间进入 AwaitingResult，以先到者为准 |
+| 等待可信结果 | 15 分钟 |
 | 单帧最大负载 | 64 KiB |
 
 这些值允许通过配置覆盖，但测试和演示默认值固定。

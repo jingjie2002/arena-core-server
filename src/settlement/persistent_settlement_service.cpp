@@ -120,6 +120,25 @@ void PersistentSettlementService::async_query_rank(asio::any_io_executor reply_e
   }
 }
 
+void PersistentSettlementService::async_query_result(asio::any_io_executor reply_executor,
+                                                      SettlementQuery query,
+                                                      ResultQueryCompletion completion) {
+  if (stopped_.load()) {
+    post_result(std::move(reply_executor), std::move(completion),
+                Result<SettlementReceipt>::failure(make_error(ErrorCode::kServerShuttingDown)));
+    return;
+  }
+  const auto submitted = executor_->try_submit(
+      [self = shared_from_this(), reply_executor, completion, query = std::move(query)]() mutable {
+        auto result = self->repository_->find_result(query);
+        post_result(std::move(reply_executor), std::move(completion), std::move(result));
+      });
+  if (!submitted) {
+    post_result(std::move(reply_executor), std::move(completion),
+                Result<SettlementReceipt>::failure(make_error(ErrorCode::kServerBusy)));
+  }
+}
+
 Result<std::int32_t> PersistentSettlementService::allowed_mmr_delta(const std::int64_t waited_seconds) const {
   return rules_->allowed_mmr_delta(waited_seconds);
 }
@@ -174,6 +193,7 @@ storage::PreparedSettlement PersistentSettlementService::prepare(
                         {"seed", command.result.deterministic_seed},
                         {"fingerprint", command.result.fingerprint},
                         {"rule_version", command.result.rule_version},
+                        {"finished_at", command.result.finished_at},
                         {"winner_delta", adjustment.winner_delta},
                         {"loser_delta", adjustment.loser_delta}};
   return storage::PreparedSettlement{std::move(command), adjustment.winner_delta, adjustment.loser_delta,

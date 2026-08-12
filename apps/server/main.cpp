@@ -3,6 +3,7 @@
 #include "arena_core/core/version.hpp"
 #include "arena_core/domain/identifiers.hpp"
 #include "arena_core/game/game_service.hpp"
+#include "arena_core/game/trusted_result_http_server.hpp"
 #include "arena_core/observer/http_server.hpp"
 #include "arena_core/observer/observer_store.hpp"
 #include "arena_core/rank/rank_cache.hpp"
@@ -181,8 +182,11 @@ int main(int argc, char** argv) {
           io_context, std::move(settlement_options), storage_executor, std::move(repository),
           std::move(rank_cache), std::move(*rules.value));
     }
+    arena_core::game::GameServiceOptions game_options;
+    game_options.result_wait_timeout =
+        std::chrono::milliseconds(config.trusted_result.result_wait_timeout_ms);
     auto game_service = std::make_shared<arena_core::game::GameService>(
-        io_context, arena_core::game::GameServiceOptions{},
+        io_context, std::move(game_options),
         std::make_shared<arena_core::domain::SequentialIdGenerator>(runtime_id_seed()), token_generator,
         std::move(settlement_gateway), observer_store);
     auto server = std::make_shared<arena_core::session::TcpServer>(
@@ -191,6 +195,22 @@ int main(int argc, char** argv) {
     if (const auto error = server->start()) {
       spdlog::error("{}: {}", arena_core::error_code_name(error.code), error.message);
       return EXIT_FAILURE;
+    }
+
+    std::shared_ptr<arena_core::game::TrustedResultHttpServer> trusted_result_server;
+    if (config.trusted_result.enabled) {
+      arena_core::game::TrustedResultHttpConfig trusted_config;
+      trusted_config.bind_address = config.trusted_result.bind_address;
+      trusted_config.port = config.trusted_result.port;
+      trusted_config.service_token = environment_value(config.trusted_result.service_token_env);
+      trusted_config.maximum_request_body_bytes = config.trusted_result.max_request_body_bytes;
+      trusted_result_server = std::make_shared<arena_core::game::TrustedResultHttpServer>(
+          io_context, std::move(trusted_config), game_service);
+      if (const auto error = trusted_result_server->start()) {
+        spdlog::error("{}: {}", arena_core::error_code_name(error.code), error.message);
+        server->stop();
+        return EXIT_FAILURE;
+      }
     }
 
     std::shared_ptr<arena_core::observer::ObserverHttpServer> observer_server;
@@ -209,9 +229,13 @@ int main(int argc, char** argv) {
     }
 
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-    signals.async_wait([server, observer_server](const boost::system::error_code&, int) {
+    signals.async_wait([server, observer_server, trusted_result_server](
+                           const boost::system::error_code&, int) {
       if (observer_server) {
         observer_server->stop();
+      }
+      if (trusted_result_server) {
+        trusted_result_server->stop();
       }
       server->stop();
     });
@@ -221,6 +245,10 @@ int main(int argc, char** argv) {
     if (observer_server) {
       spdlog::info("observer listening address={} port={} demo_mode={}", config.network.bind_address,
                    observer_server->bound_port(), config.observer.demo_mode);
+    }
+    if (trusted_result_server) {
+      spdlog::info("trusted result ingress listening address={} port={}",
+                   config.trusted_result.bind_address, trusted_result_server->bound_port());
     }
     const auto thread_count = std::max<std::size_t>(1, config.execution.io_threads);
     std::vector<std::thread> threads;

@@ -2,6 +2,7 @@
 
 #include "arena_core/core/version.hpp"
 #include "arena_core/protocol/frame.hpp"
+#include "arena_core/qa/demo_battle_adapter.hpp"
 
 #include <algorithm>
 #include <array>
@@ -10,6 +11,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -276,6 +278,20 @@ class RoomJoinBarrier final {
   std::map<std::string, std::uint32_t> joined_;
 };
 
+std::pair<std::string, std::string> deterministic_players(
+    const RobotScenario& scenario,
+    const std::uint32_t round_index,
+    std::string first,
+    std::string second) {
+  if (second < first) {
+    std::swap(first, second);
+  }
+  if ((scenario.seed + round_index) % 2U == 0U) {
+    return {std::move(first), std::move(second)};
+  }
+  return {std::move(second), std::move(first)};
+}
+
 struct ClientOutcome {
   std::uint32_t client_index{0};
   std::uint32_t round_index{0};
@@ -294,7 +310,9 @@ ClientOutcome run_client_round(const RobotScenario& scenario,
                                const std::uint32_t client_index,
                                const std::uint32_t round_index,
                                RobotClient& client,
-                               RoomJoinBarrier& join_barrier) {
+                               RoomJoinBarrier& join_barrier,
+                               RoomJoinBarrier& ready_barrier,
+                               const DemoBattleAdapter& battle_adapter) {
   const auto started = SteadyClock::now();
   const auto bucket = (client_index / 2U) % scenario.mmr_bucket_count;
   const auto mmr = static_cast<std::int32_t>(
@@ -319,6 +337,31 @@ ClientOutcome run_client_round(const RobotScenario& scenario,
 
   trace_step(scenario, client_index, "ready");
   static_cast<void>(ready_room(client, found.room_id()));
+  ready_barrier.arrive_and_wait(found.match_id());
+
+  const auto [winner_id, loser_id] = deterministic_players(
+      scenario, round_index, client.player_id(), found.opponent_id());
+  if (client.player_id() < found.opponent_id()) {
+    trace_step(scenario, client_index, "submit-result");
+    DemoBattleResult result;
+    result.result_id = "result-" + found.match_id();
+    result.match_id = found.match_id();
+    result.room_id = found.room_id();
+    result.winner_id = winner_id;
+    result.loser_id = loser_id;
+    result.finished_at = current_utc_rfc3339();
+    if (const auto error = battle_adapter.submit(result)) {
+      throw std::runtime_error(error.message);
+    }
+  }
+
+  trace_step(scenario, client_index, "wait-result-push");
+  const auto committed = parse_payload_or_throw<wire::MatchResultView>(
+      client.receive_push(wire::MATCH_RESULT_COMMITTED), "result committed");
+  if (committed.match_id() != found.match_id() || committed.winner_id() != winner_id ||
+      committed.loser_id() != loser_id) {
+    throw std::runtime_error("committed result differs from the demo battle result");
+  }
   trace_step(scenario, client_index, "wait-closed-push");
   const auto closed = client.receive_room_state("Closed");
   if (closed.winner_id() == closed.loser_id() ||
@@ -336,8 +379,8 @@ ClientOutcome run_client_round(const RobotScenario& scenario,
   outcome.opponent_id = found.opponent_id();
   outcome.match_id = found.match_id();
   outcome.room_id = found.room_id();
-  outcome.winner_id = closed.winner_id();
-  outcome.loser_id = closed.loser_id();
+  outcome.winner_id = committed.winner_id();
+  outcome.loser_id = committed.loser_id();
   outcome.own_score = rank.player().score();
   outcome.cache_state = rank.cache_state();
   outcome.latency_us = static_cast<std::uint64_t>(
@@ -438,6 +481,10 @@ Result<RobotScenario> parse_robot_scenario(const nlohmann::json& value) {
     scenario.name = value.value("name", scenario.name);
     scenario.host = value.value("host", scenario.host);
     const auto port = value.value("port", static_cast<std::uint32_t>(scenario.port));
+    scenario.result_host = value.value("result_host", scenario.result_host);
+    const auto result_port = value.value(
+        "result_port", static_cast<std::uint32_t>(scenario.result_port));
+    scenario.result_token_env = value.value("result_token_env", scenario.result_token_env);
     scenario.seed = value.value("seed", scenario.seed);
     scenario.pair_count = value.value("pair_count", scenario.pair_count);
     scenario.rounds_per_pair = value.value("rounds_per_pair", scenario.rounds_per_pair);
@@ -449,13 +496,20 @@ Result<RobotScenario> parse_robot_scenario(const nlohmann::json& value) {
     scenario.mmr_stride = value.value("mmr_stride", scenario.mmr_stride);
     scenario.mmr_bucket_count = value.value("mmr_bucket_count", scenario.mmr_bucket_count);
 
-    if (scenario.name.empty() || scenario.host.empty()) {
-      return Result<RobotScenario>::failure(scenario_error("scenario name and host must not be empty"));
+    if (scenario.name.empty() || scenario.host.empty() || scenario.result_host.empty() ||
+        scenario.result_token_env.empty()) {
+      return Result<RobotScenario>::failure(
+          scenario_error("scenario names, hosts, and result token environment must not be empty"));
     }
     if (port == 0U || port > 65'535U) {
       return Result<RobotScenario>::failure(scenario_error("scenario port must be between 1 and 65535"));
     }
     scenario.port = static_cast<std::uint16_t>(port);
+    if (result_port == 0U || result_port > 65'535U) {
+      return Result<RobotScenario>::failure(
+          scenario_error("scenario result_port must be between 1 and 65535"));
+    }
+    scenario.result_port = static_cast<std::uint16_t>(result_port);
     if (scenario.pair_count == 0U || scenario.pair_count > 500U) {
       return Result<RobotScenario>::failure(scenario_error("pair_count must be between 1 and 500"));
     }
@@ -569,6 +623,16 @@ RobotRunReport run_robot_scenario(const RobotScenario& scenario) {
   std::atomic<std::uint64_t> heartbeat_count{0};
   std::atomic<bool> stop_requested{false};
   RoomJoinBarrier join_barrier;
+  RoomJoinBarrier ready_barrier;
+  const auto* result_token = std::getenv(scenario.result_token_env.c_str());
+  if (result_token == nullptr || *result_token == '\0') {
+    report.failures.push_back(
+        {0U, "trusted result token environment is not configured: " +
+                 scenario.result_token_env});
+    return report;
+  }
+  const DemoBattleAdapter battle_adapter(
+      {scenario.result_host, scenario.result_port, result_token});
   std::vector<ClientOutcome> outcomes;
   std::vector<std::thread> workers;
   workers.reserve(client_count);
@@ -602,7 +666,8 @@ RobotRunReport run_robot_scenario(const RobotScenario& scenario) {
             std::this_thread::sleep_for(
                 std::chrono::milliseconds(static_cast<std::uint64_t>(scenario.queue_stagger_ms) * client_index));
           }
-          auto outcome = run_client_round(scenario, client_index, round, client, join_barrier);
+          auto outcome = run_client_round(scenario, client_index, round, client, join_barrier,
+                                          ready_barrier, battle_adapter);
           std::lock_guard<std::mutex> lock(result_mutex);
           outcomes.push_back(std::move(outcome));
         }
@@ -701,6 +766,9 @@ nlohmann::json robot_scenario_json(const RobotScenario& scenario) {
   return {{"name", scenario.name},
           {"host", scenario.host},
           {"port", scenario.port},
+          {"result_host", scenario.result_host},
+          {"result_port", scenario.result_port},
+          {"result_token_env", scenario.result_token_env},
           {"seed", scenario.seed},
           {"pair_count", scenario.pair_count},
           {"rounds_per_pair", scenario.rounds_per_pair},

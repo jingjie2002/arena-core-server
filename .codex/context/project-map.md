@@ -1,5 +1,21 @@
 # 项目地图
 
+## 2026-08-12 M9 可信比赛结果接入新增结构
+
+- `include/arena_core/game/trusted_result.hpp`、`src/game/trusted_result.cpp`：可信结果请求、校验、指纹和 receipt 映射。
+- `include/arena_core/game/trusted_result_http_server.hpp`、`src/game/trusted_result_http_server.cpp`：与 Observer 分离的受保护 HTTP listener。
+- `include/arena_core/qa/demo_battle_adapter.hpp`、`src/qa/demo_battle_adapter.cpp`：本地/Robot 模拟战斗服，始终调用正式可信入口。
+- `include/arena_core/game/room_actor.hpp`、`src/game/room_actor.cpp`：`AwaitingResult`、结果超时、结算重试和 committed 玩家推送。
+- `src/game/game_service.cpp`、`proto/arena_core.proto`：可信结果编排、玩家结果查询和推送协议。
+- `src/settlement/`、`src/storage/`：按 result_id/match_id 查询 MySQL 已提交 receipt 和跨重启幂等事实。
+- `config/arena-core.m9.json`、`scenarios/qa/m9-trusted-result.json`、`scripts/dev/m9-e2e.sh`：使用 49410/49420/49430 的隔离 M9 端到端入口。
+- `tests/game/trusted_result_http_test.cpp` 及既有 game/data/protocol/config 测试：权限、校验、状态、通知、查询、幂等、冲突和持久化覆盖。
+- `docs/specs/m9-trusted-result-ingress.md`、`docs/adr/0005-trusted-result-boundary.md`：M9 契约与架构决策。
+
+构建和测试原始产物仍位于被忽略的 `out/`；正式证据保存在 `docs/operations/M9-automatic-verification-2026-08-12.md`。
+
+---
+
 ## 2026-08-12 v1.1 正式设计新增结构
 
 - `docs/specs/v1.1-product-design-proposal.md`：当前待用户确认的推荐设计，覆盖产品定位、可信结果入口、玩家结果通知、QA Lab、P0 场景、Run 模型、技术边界、M9—M12 和验收标准。

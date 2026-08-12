@@ -1,0 +1,18 @@
+{
+  "name": "m9-trusted-result-ingress",
+  "host": "127.0.0.1",
+  "port": 49410,
+  "result_host": "127.0.0.1",
+  "result_port": 49430,
+  "result_token_env": "ARENA_RESULT_SERVICE_TOKEN",
+  "seed": 20260812,
+  "pair_count": 1,
+  "rounds_per_pair": 1,
+  "duration_seconds": 0,
+  "heartbeat_interval_ms": 1000,
+  "queue_stagger_ms": 20,
+  "match_wait_ms": 5000,
+  "mmr_base": 1000,
+  "mmr_stride": 100,
+  "mmr_bucket_count": 1
+}

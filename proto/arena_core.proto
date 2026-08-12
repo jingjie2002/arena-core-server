@@ -21,6 +21,9 @@ enum MessageType {
   ROOM_LEFT = 25;
   GET_RANK = 30;
   RANK_RESULT = 31;
+  GET_MATCH_RESULT = 32;
+  MATCH_RESULT = 33;
+  MATCH_RESULT_COMMITTED = 34;
   ERROR_RESPONSE = 100;
 }
 
@@ -133,6 +136,30 @@ message RankResult {
   RankEntry player = 2;
   repeated RankEntry neighbors = 3;
   string cache_state = 4;
+}
+
+message GetMatchResult {
+  string match_id = 1;
+}
+
+message MatchPlayerResult {
+  string player_id = 1;
+  int32 before_score = 2;
+  int32 after_score = 3;
+  string outcome = 4;
+}
+
+message MatchResultView {
+  string result_id = 1;
+  string match_id = 2;
+  string room_id = 3;
+  string winner_id = 4;
+  string loser_id = 5;
+  string rule_version = 6;
+  string finished_at = 7;
+  repeated MatchPlayerResult players = 8;
+  string cache_state = 9;
+  bool idempotent = 10;
 }
 
 message ErrorResponse {

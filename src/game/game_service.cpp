@@ -1,5 +1,6 @@
 #include "arena_core/game/game_service.hpp"
 
+#include "arena_core/domain/identifiers.hpp"
 #include "arena_core/protocol/frame.hpp"
 #include "arena_core/observer/observer_store.hpp"
 
@@ -104,11 +105,67 @@ void GameService::handle(std::string player_id, wire::Envelope request, Completi
       case wire::GET_RANK:
         self->handle_rank(std::move(player_id), std::move(request), std::move(completion));
         return;
+      case wire::GET_MATCH_RESULT:
+        self->handle_match_result(std::move(player_id), std::move(request), std::move(completion));
+        return;
       default:
         completion(Result<wire::Envelope>::failure(make_error(ErrorCode::kProtocolUnknownMessage)));
         return;
     }
   });
+}
+
+void GameService::async_submit_trusted_result(TrustedMatchResult result,
+                                              RoomActor::TrustedResultCompletion completion) {
+  asio::dispatch(strand_, [self = shared_from_this(), result = std::move(result),
+                           completion = std::move(completion)]() mutable {
+    if (self->stopped_) {
+      completion(Result<settlement::SettlementReceipt>::failure(
+          make_error(ErrorCode::kServerShuttingDown)));
+      return;
+    }
+    auto frozen = freeze_trusted_result(result);
+    if (!frozen.ok()) {
+      completion(Result<settlement::SettlementReceipt>::failure(std::move(frozen.error)));
+      return;
+    }
+    const auto room = self->rooms_by_match_.find(result.match_id);
+    if (room != self->rooms_by_match_.end()) {
+      if (room->second->room_id() != result.room_id) {
+        completion(Result<settlement::SettlementReceipt>::failure(
+            make_error(ErrorCode::kSettlementConflict, "room does not belong to match")));
+        return;
+      }
+      room->second->async_submit_result(std::move(result.result_id),
+                                        std::move(*frozen.value), std::move(completion));
+      return;
+    }
+    const auto expected_result_id = result.result_id;
+    const auto expected_fingerprint = frozen.value->fingerprint;
+    self->settlement_gateway_->async_query_result(
+        self->strand_, settlement::SettlementQuery{"", result.match_id},
+        [completion = std::move(completion), expected_result_id, expected_fingerprint](
+            Result<settlement::SettlementReceipt> existing) mutable {
+          if (!existing.ok()) {
+            completion(Result<settlement::SettlementReceipt>::failure(std::move(existing.error)));
+            return;
+          }
+          if (existing.value->settlement_id != expected_result_id ||
+              existing.value->fingerprint != expected_fingerprint) {
+            completion(Result<settlement::SettlementReceipt>::failure(
+                make_error(ErrorCode::kSettlementConflict)));
+            return;
+          }
+          existing.value->idempotent = true;
+          completion(std::move(existing));
+        });
+  });
+}
+
+void GameService::async_query_trusted_result(
+    settlement::SettlementQuery query,
+    settlement::SettlementGateway::ResultQueryCompletion completion) {
+  settlement_gateway_->async_query_result(strand_, std::move(query), std::move(completion));
 }
 
 void GameService::handle_queue(std::string player_id, wire::Envelope request, Completion completion) {
@@ -261,6 +318,36 @@ void GameService::handle_rank(std::string player_id, wire::Envelope request, Com
       });
 }
 
+void GameService::handle_match_result(std::string player_id,
+                                      wire::Envelope request,
+                                      Completion completion) {
+  auto command = protocol::parse_payload<wire::GetMatchResult>(request);
+  if (!command.ok()) {
+    completion(Result<wire::Envelope>::failure(std::move(command.error)));
+    return;
+  }
+  if (!domain::is_valid_resource_id(command.value->match_id())) {
+    completion(Result<wire::Envelope>::failure(make_error(ErrorCode::kSettlementNotFound)));
+    return;
+  }
+  settlement_gateway_->async_query_result(
+      strand_, settlement::SettlementQuery{"", command.value->match_id()},
+      [player_id = std::move(player_id), completion = std::move(completion)](
+          Result<settlement::SettlementReceipt> result) mutable {
+        if (!result.ok()) {
+          completion(Result<wire::Envelope>::failure(std::move(result.error)));
+          return;
+        }
+        if (!receipt_contains_player(*result.value, player_id)) {
+          completion(Result<wire::Envelope>::failure(
+              make_error(ErrorCode::kSettlementAccessDenied)));
+          return;
+        }
+        completion(response_with_payload(wire::MATCH_RESULT,
+                                         make_match_result_view(*result.value)));
+      });
+}
+
 void GameService::sweep_and_match() {
   const auto now = domain::MonotonicClock::now();
   for (auto iterator = queue_.begin(); iterator != queue_.end();) {
@@ -319,7 +406,8 @@ bool GameService::try_match_once(const domain::TimePoint now) {
     std::weak_ptr<GameService> weak_self = shared_from_this();
     auto room = RoomActor::create(io_context_, room_id, match_id, options_.room_server,
                                   first->second.player_id(), second->second.player_id(), first_join_token,
-                                  second_join_token, now + options_.join_token_ttl, notifier_, settlement_gateway_,
+                                  second_join_token, now + options_.join_token_ttl,
+                                  options_.result_wait_timeout, notifier_, settlement_gateway_,
                                   [weak_self](std::string closed_room_id) {
                                     if (const auto self = weak_self.lock()) {
                                       asio::post(self->strand_, [self, closed_room_id = std::move(closed_room_id)]() mutable {
@@ -342,6 +430,7 @@ bool GameService::try_match_once(const domain::TimePoint now) {
     const auto first_ticket_id = first->first;
     const auto second_ticket_id = second->first;
     rooms_.emplace(room_id, *room.value);
+    rooms_by_match_.emplace(match_id, *room.value);
     active_room_count_.fetch_add(1);
     active_ticket_by_player_.erase(first->second.player_id());
     active_ticket_by_player_.erase(second->second.player_id());

@@ -15,6 +15,9 @@ struct RobotScenario {
   std::string name{"full-flow"};
   std::string host{"127.0.0.1"};
   std::uint16_t port{49110};
+  std::string result_host{"127.0.0.1"};
+  std::uint16_t result_port{49130};
+  std::string result_token_env{"ARENA_RESULT_SERVICE_TOKEN"};
   std::uint64_t seed{20260812};
   std::uint32_t pair_count{1};
   std::uint32_t rounds_per_pair{1};
