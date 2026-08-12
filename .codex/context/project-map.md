@@ -1,5 +1,20 @@
 # 项目地图
 
+## 2026-08-12 M8 最终交付结构
+
+- `README.md`、`LICENSE`：非技术入口、复现命令、证据索引和 MIT 许可。
+- `Dockerfile`、`compose.yaml`、`deploy/haproxy.cfg`：从源码构建的 C++ 镜像、MySQL 8、Redis 7、幂等迁移和仅宿主机 loopback 暴露的独立网关。
+- `scripts/doctor.sh`、`scripts/demo-up.sh`、`scripts/smoke.sh`、`scripts/demo-down.sh`：公开演示生命周期。
+- `scripts/release/m8-clean-copy-check.sh`：排除 Git、构建、运行缓存和旧数据卷的隔离副本验收。
+- `scripts/release/m8-local-clone-check.sh`：只使用已提交 Git 内容的真实 Linux 克隆验收，覆盖脚本权限、原生构建与独立 Compose。
+- `docs/architecture.md`、`protocol-and-flow.md`、`data-consistency.md`、`testing.md`、`incident-reviews.md`、`known-limitations.md`：公开技术说明。
+- `docs/release-notes-v1.0.0.md`、`docs/operations/M8-final-verification-2026-08-12.md`、`docs/handoffs/M8-release.md`：最终版本、操作证据与非技术交接。
+- `.github/workflows/ci.yml`：GCC/Clang、Sanitizer、manifest、发布契约和 clean-copy Compose 门禁。
+
+本地 Git `main` 保存完成历史，`v1.0.0` 标签固定最终基线；远端 GitHub 不属于当前本地文件结构。
+
+---
+
 ## 2026-08-12 M7 后新增结构
 
 - `include/arena_core/qa/`、`src/qa/`：可复用 Robot 场景模型、真实 TCP 执行、结构化报告、分位数和重放核对。

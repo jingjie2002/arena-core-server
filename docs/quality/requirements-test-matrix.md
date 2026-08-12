@@ -30,7 +30,7 @@
 | QA-001 | Robot 完整双玩家链路 | e2e | M7 | 通过：真实 TCP 完成连接、匹配、进房、准备、结算和查榜；8 人并发形成 4 个房间 |
 | QA-002 | 固定种子、依赖故障、回放一致性 | e2e/fault | M7 | 通过：固定场景报告可在重启后回放核对；依赖故障与恢复序列通过 |
 | OPS-001 | 各状态下 SIGTERM 排空与截止测试 | integration | M7 | 通过：覆盖排队、已入房、活跃连接、已完成和真实数据依赖；E2E 最慢退出 105 ms |
-| REL-001 | 空目录 fresh clone 按 README 全量执行 | manual/release | M8 | 计划 |
+| REL-001 | 空目录 fresh clone 按 README 全量执行 | manual/release | M8 | 通过：本地 Git `c0338e1` 克隆到临时 Linux 目录；直接执行脚本、GCC 80/80、全新 Compose/数据卷与完整 Robot smoke 通过 |
 
 ## M0 已有证据
 
@@ -69,4 +69,4 @@
 - 每个 `计划` 在实现后更新为 `通过`、`部分通过` 或 `阻塞`。
 - `通过` 必须附可重复命令；集成/E2E 还要注明依赖版本或 Compose 服务。
 - 失败和跳过项不得删除，必须记录原因和补偿计划。
-- M8 只有在全新 WSL 克隆中重复成功后，REL-001 才能改为通过。
+- M8 只有在全新 Linux Git clone 或独立 CI checkout 中重复成功后，REL-001 才能改为通过。

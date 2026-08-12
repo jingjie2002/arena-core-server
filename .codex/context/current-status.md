@@ -1,5 +1,17 @@
 # 当前状态
 
+## 2026-08-12 M8 与本地 v1.0 已完成
+
+- 用户在重启后要求项目一次性推进到完成；M0—M8 的工程实现、验证、文档和本地版本历史现已闭环。
+- M8 补齐 README、架构/协议/数据/测试/故障/限制/运维文档、Compose 演示、截图、MIT 许可证、Release Notes 和 GitHub Actions fresh-clone 门禁。
+- 重启恢复时发现并修复网关共用网络命名空间、正式镜像默认强制 Demo 模式、干净 Linux `.runtime` 写权限、Dockerfile 隐性 syntax 下载和 Git Shell 可执行位五类发布问题。
+- 最终 GCC/Clang 普通回归各 80/80；clean-copy 原生 GCC 80/80 与独立 Compose 通过；真实 Git `c0338e1` 克隆同样完成 GCC 80/80 和完整 Robot 数据链。
+- Compose 停止但保留数据后重新启动通过，MySQL settlement 计数从 4 增至 5，证明旧事实保留且新业务仍可写入；当前本地 Demo 继续运行在 `http://127.0.0.1:49120/`。
+- 本地 `main` 已建立可追溯提交，最终记录提交后建立 `v1.0.0` 标签；源码未上传公开 GitHub，也未创建远端 Release。
+- 正式操作记录：`docs/operations/M8-final-verification-2026-08-12.md`；非技术交接：`docs/handoffs/M8-release.md`；审计报告：`.codex/reports/第16次-M8发布与最终验收-2026-08-12-1159.md`。
+
+---
+
 ## 2026-08-12 M7 已完成，进入 M8 发布准备
 
 - Robot 已覆盖真实 TCP 的连接、匹配、进房、准备、确定性结算和查榜，并支持 JSON 场景、结构化报告与服务重启后的结果重放。
