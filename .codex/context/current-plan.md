@@ -2,22 +2,31 @@
 
 ## 当前任务
 
-- 任务名称：竞域C++17游戏服务端简历主项目
-- 任务模式：从概念开始；重新锁定项目定位与 v1.1 需求
-- 方案更新时间：2026-08-12（项目定位草案完成后）
+- 任务名称：竞域 v1.1 产品设计与可接入化
+- 任务模式：从概念开始；产品设计提案已完成，等待用户确认
+- 方案更新时间：2026-08-12（GitHub 调研与正式设计提案完成后）
 - Harness：`full/design`；用户确认定位前不进入实现
 - 当前分支：`codex/v1.1-scenario-lab`；所有 v1.1 实验改动与 `main` 隔离，确认后才考虑合并
 
 ## 当前设计结论（等待用户确认）
 
 - 推荐定位：`竞域｜C++17 1v1 竞技游戏对局编排与结算服务端`。
-- 业务边界：负责战斗之外的会话、重连、匹配、房间、内部结果接入、MySQL 结算、Redis 排行与修复；不实现移动、技能和战斗。
-- 项目形态：独立服务端参考工程 + 真实 TCP Robot/示例客户端 + Web 运行控制台 + MySQL/Redis Compose，不是通用框架或普通玩家产品。
-- v1.1 核心：保留已验证后台，增加真实 Robot 场景控制、连续 trace 展示、结算/缓存证据和最小客户端接入说明。
+- 业务边界：负责战斗之外的会话、重连、匹配、房间、可信结果接入、MySQL 结算、Redis 排行与修复；不实现移动、技能和战斗。
+- 项目形态：独立服务端 + 玩家协议 + 可信结果 API + 真实 TCP Robot/示例适配器 + 本地开发/QA 控制台 + MySQL/Redis Compose，不是通用框架或普通玩家产品。
+- v1.1 核心：Room 在 Ready 后等待可信结果；Demo Battle Adapter 与未来战斗服走同一结果入口；已提交结果通知玩家并可查询。
 - 控制台形态：从固定按钮升级为可变参数场景实验台；本机使用者能组合安全输入并重放，独立 Lab Controller 驱动真实 Robot 和受控故障，Observer 仍只读。
 - 安全边界：不允许页面直接热改业务对象、数据库、任意 Lua/SQL/Shell 或正式服务配置；远程多人使用需另行增加认证、权限和审计，不纳入当前本机 v1.1。
+- 技术路线：继续 C++17、Boost callback/strand、Protobuf、MySQL、Redis、Lua、原生 Web；只增加 C++ `arena-core-lab` 和可选 Toxiproxy lab profile。
+- P0 场景：完整对局、断线恢复、重复玩家请求、重复权威结果、Redis 故障恢复；MySQL 故障页面化、Run 对比等留给 v1.2。
 - 发布边界：真实演示、README 定位和个人讲解未完成前，不上传 GitHub。
-- 权威草案：`docs/specs/project-positioning-and-v1.1-requirements-draft.md`；确认后再形成实施计划并切换 `full/build`。
+- 推荐设计：`docs/specs/v1.1-product-design-proposal.md`；参考调研：`docs/research/github-game-server-reference-review-2026-08-12.md`；用户确认后切换 `full/build` 并按 M9—M12 实施。
+
+## v1.1 推荐实施阶段（尚未授权实施）
+
+- M9：可信结果入口、`AwaitingResult`、结果通知/查询和接入示例。
+- M10：可复用 C++ QA 场景库、Scenario Schema、Run 状态机与四个无代理 P0 场景。
+- M11：`arena-core-lab`、四页开发/QA 控制台、Toxiproxy 和 Redis 故障场景。
+- M12：双编译器、真实依赖、浏览器 E2E、Sanitizer、稳定性、fresh-clone、文档和最终人工可见性验收。
 
 ## v1.0.1 修复结论
 
@@ -49,13 +58,14 @@
 
 ## 目标
 
-- 实现一条可解释、可测试的C++17游戏服务端闭环：TCP/Protobuf/Session/心跳/重连→匹配→Room→准备→确定性结果→MySQL结算→Redis排行。
+- 实现一条可解释、可接入、可测试的 C++17 游戏服务端闭环：TCP/Protobuf/Session/心跳/重连→匹配→Room→等待可信结果→MySQL 结算→Redis 排行→玩家结果通知。
 - 通过Web观察台、Robot、故障注入、Sanitizer和真实测试报告形成简历证据。
 - 通过GitHub fresh-clone硬验收，消除作者机器缓存、私有配置和已有数据库依赖。
 
 ## 当前采用方案
 
-- 完整范围与里程碑以`plans/arena-core-server-master-plan-2026-08-11.md`为唯一执行基线。
+- v1.0 历史范围与里程碑以`plans/arena-core-server-master-plan-2026-08-11.md`为已完成执行基线；v1.1 尚未进入实现。
+- v1.1 产品范围以`docs/specs/v1.1-product-design-proposal.md`为待确认推荐方案，确认后再生成实施级任务分解。
 - 简要定位以`docs/jingyu-cpp17-project-brief-2026-08-11.md`为快速入口。
 - 已读取历史任务`019fb34b-a68f-72d0-ad56-a711b17ad3e1`并完成交叉核对；历史最终确认与当前总规划一致。
 - 实施顺序固定为M0规格→M1骨架→M2状态机→M3网络/Session→M4匹配/Room→M5数据/Lua→M6观察台→M7 QA/稳定性→M8文档与发布。

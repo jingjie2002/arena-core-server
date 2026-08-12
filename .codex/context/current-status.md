@@ -1,5 +1,19 @@
 # 当前状态
 
+## 2026-08-12 v1.1 产品设计提案与 GitHub 调研完成
+
+- 已基于当前 C++17/Boost.Asio/Protobuf/MySQL/Redis/Lua/CMake/Compose 技术栈完成新版本产品设计，没有修改业务代码。
+- 推荐定位确定为“可被游戏客户端和可信比赛模块接入的 1v1 对局编排与结算服务”，Web 明确属于开发/QA 控制台，不是游戏画面。
+- v1.1 推荐新增可信结果 API：Room 在双方 Ready 后进入 `AwaitingResult`，由 Demo Battle Adapter 或未来战斗服提交权威结果；结算提交后通知玩家，并支持断线后只读查询。
+- 可参数化实验台由独立 C++17 `arena-core-lab` 驱动真实 Robot 和 Demo Battle Adapter；Observer 继续只读，正式 profile 不启动 Lab。
+- 已对照 Open Match、Nakama、Moon、BoostServerTech Chat、CppServer、Toxiproxy、k6、KBEngine 和 Boost.Asio；只吸收职责边界、场景/阈值、故障代理和工程证据，不引入 MMO、微服务、Kubernetes、C++20/23 或大型前端框架。
+- v1.1 P0 锁定完整对局、断线恢复、重复玩家请求、重复权威结果和 Redis 故障恢复五个可调场景；MySQL 故障页面化、Run 对比和更多压力控制留给 v1.2 候选。
+- 推荐设计：`docs/specs/v1.1-product-design-proposal.md`；调研证据：`docs/research/github-game-server-reference-review-2026-08-12.md`；第一轮草案保留为历史记录。
+- 当前仍是 `full/design`，等待用户确认产品方向后才切换 build；`main`、历史标签和 GitHub 发布边界不变。
+- 审计报告：`.codex/reports/第21次-v1.1产品设计与GitHub调研-2026-08-12-1303.md`。
+
+---
+
 ## 2026-08-12 v1.1 实验开发分支已建立
 
 - 已从 `main` 的提交 `648fd58` 创建并切换到 `codex/v1.1-scenario-lab`。

@@ -1,5 +1,15 @@
 # 项目地图
 
+## 2026-08-12 v1.1 正式设计新增结构
+
+- `docs/specs/v1.1-product-design-proposal.md`：当前待用户确认的推荐设计，覆盖产品定位、可信结果入口、玩家结果通知、QA Lab、P0 场景、Run 模型、技术边界、M9—M12 和验收标准。
+- `docs/research/github-game-server-reference-review-2026-08-12.md`：Open Match、Nakama、Moon、BoostServerTech Chat、CppServer、Toxiproxy、k6、KBEngine 和 Boost.Asio 的设计借鉴/拒绝矩阵。
+- `docs/specs/project-positioning-and-v1.1-requirements-draft.md`：保留为第一轮讨论记录，不再作为当前推荐方案。
+
+本轮只新增设计资料；`apps/`、`src/`、`include/`、`proto/`、`tests/` 和 Compose 尚未发生 v1.1 代码变化。
+
+---
+
 ## 2026-08-12 v1.1 定位设计新增结构
 
 - `docs/specs/project-positioning-and-v1.1-requirements-draft.md`：待确认的项目定位、目标用户、主要目标、v1.1 分层需求、运行控制台职责、备选方案、非目标和发布门槛。
