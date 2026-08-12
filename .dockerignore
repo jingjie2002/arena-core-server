@@ -1,0 +1,13 @@
+.git
+.github
+.agents
+.codex
+.runtime
+out
+build
+vcpkg_installed
+*.log
+*.user
+*.suo
+*.swp
+compile_commands.json

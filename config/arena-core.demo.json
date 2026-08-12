@@ -1,0 +1,32 @@
+{
+  "environment": "demo",
+  "network": {
+    "bind_address": "127.0.0.1",
+    "tcp_port": 39110,
+    "observer_port": 39120,
+    "max_frame_bytes": 65536
+  },
+  "execution": {
+    "io_threads": 2,
+    "storage_threads": 2,
+    "storage_queue_capacity": 128
+  },
+  "logging": {
+    "level": "info",
+    "file": ""
+  },
+  "session": {
+    "hello_timeout_ms": 5000,
+    "idle_timeout_ms": 30000,
+    "reconnect_window_ms": 15000
+  },
+  "observer": {
+    "enabled": true,
+    "demo_mode": false,
+    "static_root": "web/observer",
+    "max_events": 2048
+  },
+  "data": {
+    "enabled": false
+  }
+}

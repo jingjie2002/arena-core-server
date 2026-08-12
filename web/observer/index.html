@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>竞域 · 比赛流程演示</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="#overview" aria-label="回到总览">
+      <span class="brand-mark">竞</span>
+      <span><strong>竞域</strong><small>本地比赛流程演示</small></span>
+    </a>
+    <div class="topbar-status">
+      <span id="poll-status" class="live-pill"><i></i>正在连接</span>
+      <span id="updated-at" class="updated-at">—</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="overview" class="hero">
+      <div>
+        <p class="eyebrow">先看这里 · 不需要懂代码</p>
+        <h1>点一个按钮，<br><em>看服务器做了什么。</em></h1>
+        <p class="hero-copy"><strong>这不是游戏画面。</strong>这是游戏服务器的工作演示页。它会模拟玩家进入、匹配、比赛和保存成绩；你只需要看按钮下方的中文结论。</p>
+        <div class="hero-note"><span>你的任务</span><p>点击演示按钮，然后判断结果说明是否清楚。技术是否正确由自动测试负责。</p></div>
+      </div>
+      <div class="demo-panel">
+        <div class="panel-heading">
+          <span>建议从第 1 项开始</span><b>本地安全演示</b>
+        </div>
+        <button class="scenario primary" data-scenario="eight-player-flow">
+          <span class="scenario-icon">1</span>
+          <span><strong>演示一次完整比赛</strong><small>8 人进入，组成 4 场一对一比赛</small></span>
+          <span class="arrow">→</span>
+        </button>
+        <button class="scenario" data-scenario="duplicate-settlement">
+          <span class="scenario-icon">2</span>
+          <span><strong>测试重复提交会不会重复加分</strong><small>正确结果：成绩仍然只有 4 份</small></span>
+          <span class="arrow">→</span>
+        </button>
+        <button class="scenario danger" data-scenario="redis-repair">
+          <span class="scenario-icon">3</span>
+          <span><strong>测试排行榜故障后能否恢复</strong><small>正确结果：真实成绩不丢，排行榜恢复</small></span>
+          <span class="arrow">→</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="scenario-result" class="result-card waiting" role="status" aria-live="polite">
+      <div class="result-mark">?</div>
+      <div class="result-main">
+        <p class="result-kicker">等待开始</p>
+        <h2>先点击“1. 演示一次完整比赛”</h2>
+        <p class="result-summary">运行完成后，这里会直接告诉你刚才发生了什么、结果是否正确，以及它证明了什么。</p>
+      </div>
+    </section>
+
+    <section class="journey-section" aria-label="一次比赛的处理流程">
+      <div class="section-title"><div><p class="eyebrow">一次完整比赛</p><h2>服务器会依次完成这 6 步</h2></div><p>点击第 1 项后，整个过程会自动完成，不需要你逐步操作。</p></div>
+      <div class="journey">
+        <article><span>1</span><strong>玩家连接</strong><small>8 名模拟玩家进入</small></article>
+        <i>→</i>
+        <article><span>2</span><strong>进入匹配</strong><small>寻找水平接近的对手</small></article>
+        <i>→</i>
+        <article><span>3</span><strong>组成房间</strong><small>形成 4 场一对一比赛</small></article>
+        <i>→</i>
+        <article><span>4</span><strong>完成比赛</strong><small>服务器确定每场胜者</small></article>
+        <i>→</i>
+        <article><span>5</span><strong>保存成绩</strong><small>每场生成 1 份成绩</small></article>
+        <i>→</i>
+        <article><span>6</span><strong>更新排行</strong><small>按照最新分数排序</small></article>
+      </div>
+    </section>
+
+    <details class="technical-details">
+      <summary>
+        <span><strong>查看开发者技术明细</strong><small>连接、房间、成绩记录、自动测试和程序处理日志；不影响你的验收</small></span>
+        <b aria-hidden="true"></b>
+      </summary>
+      <div class="technical-content">
+        <section class="metric-grid" aria-label="服务总览指标">
+          <article class="metric"><span>当前模拟玩家</span><strong id="metric-sessions">0</strong><small>已连接到服务器</small></article>
+          <article class="metric"><span>仍在等待匹配</span><strong id="metric-tickets">0</strong><small>0 表示所有人都已匹配</small></article>
+          <article class="metric"><span>已经完成的比赛</span><strong id="metric-rooms">0</strong><small>每个房间代表 1 场比赛</small></article>
+          <article class="metric"><span>已经保存的成绩</span><strong id="metric-settlements">0</strong><small>每场比赛只保存 1 份</small></article>
+        </section>
+
+        <section class="section health-section">
+          <div class="section-title"><div><p class="eyebrow">运行状态</p><h2>服务器各部分是否正常</h2></div><p>绿色表示当前正常。故障演示结束得很快，所以最终会重新显示绿色。</p></div>
+          <div id="health-list" class="health-list"></div>
+        </section>
+
+        <section class="section split-section">
+          <div>
+            <div class="section-title compact"><div><p class="eyebrow">玩家</p><h2>连接到服务器的人</h2></div></div>
+            <div class="table-shell"><table><thead><tr><th>玩家</th><th>当前状态</th><th>连接代次</th><th>内部追踪编号</th></tr></thead><tbody id="sessions-body"></tbody></table></div>
+          </div>
+          <div>
+            <div class="section-title compact"><div><p class="eyebrow">比赛</p><h2>4 个比赛房间</h2></div></div>
+            <div id="room-cards" class="room-grid"></div>
+          </div>
+        </section>
+
+        <section class="section split-section rankings-section">
+          <div>
+            <div class="section-title compact"><div><p class="eyebrow">比赛结果</p><h2>最新玩家排名</h2></div><span id="cache-state" class="tag">等待数据</span></div>
+            <p class="section-help">第 1 项完成后，服务器会按照新分数自动排序。</p>
+            <div class="table-shell"><table><thead><tr><th>名次</th><th>玩家</th><th>分数</th></tr></thead><tbody id="rankings-body"></tbody></table></div>
+          </div>
+          <div>
+            <div class="section-title compact"><div><p class="eyebrow">成绩保存记录</p><h2>每场比赛的入账结果</h2></div></div>
+            <p class="section-help">它不是付款记录。第 1 项会产生 4 份比赛成绩；第 2 项只检查重复保护，不应产生第 5 份。</p>
+            <div id="settlement-list" class="settlement-list"></div>
+          </div>
+        </section>
+
+        <section class="section qa-section">
+          <div class="section-title"><div><p class="eyebrow">自动检查</p><h2>每次演示的测试记录</h2></div><p>这里供开发者复核场景、耗时和关联问题；你只需要看页面上方的大结论。</p></div>
+          <div id="qa-runs" class="qa-grid"></div>
+        </section>
+
+        <section class="section timeline-section">
+          <div class="section-title timeline-heading">
+            <div><p class="eyebrow">内部日志</p><h2>服务器处理顺序</h2></div>
+            <label class="trace-filter">按内部追踪编号筛选<input id="trace-filter" type="search" placeholder="例如 trace-demo-1"></label>
+          </div>
+          <div id="timeline" class="timeline"></div>
+        </section>
+      </div>
+    </details>
+  </main>
+
+  <footer><span>竞域 · C++17 游戏服务器</span><span>仅在本机运行 · 演示数据</span></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>

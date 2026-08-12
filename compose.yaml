@@ -1,0 +1,98 @@
+name: arena-core-demo
+
+services:
+  mysql:
+    image: mysql:8.0.46
+    environment:
+      MYSQL_DATABASE: arena
+      MYSQL_USER: arena
+      MYSQL_PASSWORD: ${ARENA_DEMO_MYSQL_PASSWORD:-arena_demo_local}
+      MYSQL_ROOT_PASSWORD: ${ARENA_DEMO_MYSQL_ROOT_PASSWORD:-arena_root_local}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - arena-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2.15-bookworm
+    command: ["redis-server", "--appendonly", "yes", "--loglevel", "warning"]
+    volumes:
+      - arena-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    image: mysql:8.0.46
+    environment:
+      MYSQL_PWD: ${ARENA_DEMO_MYSQL_PASSWORD:-arena_demo_local}
+    command:
+      - sh
+      - -c
+      - mysql -hmysql -uarena arena < /migrations/001_m5_settlement.sql
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  arena-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: ${ARENA_DEMO_IMAGE:-arena-core-server:local}
+    environment:
+      ARENA_MYSQL_PASSWORD: ${ARENA_DEMO_MYSQL_PASSWORD:-arena_demo_local}
+      ARENA_REDIS_PASSWORD: ""
+    volumes:
+      - ./.runtime:/opt/arena-core/.runtime
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - /opt/arena-core/bin/arena-core-server
+        - --config
+        - /opt/arena-core/.runtime/arena-core.json
+        - --check-config
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    init: true
+    stop_grace_period: 10s
+    restart: unless-stopped
+
+  gateway:
+    image: haproxy:3.0.25-alpine
+    ports:
+      - "127.0.0.1:${ARENA_DEMO_TCP_PORT:-49110}:19100"
+      - "127.0.0.1:${ARENA_DEMO_OBSERVER_PORT:-49120}:18080"
+    volumes:
+      - ./deploy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      arena-core:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  arena-mysql-data:
+  arena-redis-data:

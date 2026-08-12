@@ -1,0 +1,131 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_STANDARD": "17",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "ARENA_BUILD_TESTS": "ON",
+        "ARENA_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "linux-gcc",
+      "displayName": "Linux GCC 13 / system packages",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "linux-clang",
+      "displayName": "Linux Clang 18 / system packages",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "linux-clang-asan-ubsan",
+      "displayName": "Linux Clang 18 / ASan + UBSan",
+      "inherits": "linux-clang",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "ARENA_ENABLE_ASAN": "ON",
+        "ARENA_ENABLE_UBSAN": "ON"
+      }
+    },
+    {
+      "name": "linux-gcc-tsan",
+      "displayName": "Linux GCC 13 / ThreadSanitizer",
+      "inherits": "linux-gcc",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "ARENA_ENABLE_TSAN": "ON"
+      }
+    },
+    {
+      "name": "linux-gcc-vcpkg",
+      "displayName": "Linux GCC / pinned vcpkg manifest",
+      "inherits": "linux-gcc",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows MSVC C++17",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "cl"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-gcc", "configurePreset": "linux-gcc", "jobs": 4 },
+    { "name": "linux-clang", "configurePreset": "linux-clang", "jobs": 4 },
+    { "name": "linux-clang-asan-ubsan", "configurePreset": "linux-clang-asan-ubsan", "jobs": 4 },
+    { "name": "linux-gcc-tsan", "configurePreset": "linux-gcc-tsan", "jobs": 4 },
+    { "name": "linux-gcc-vcpkg", "configurePreset": "linux-gcc-vcpkg", "jobs": 4 },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "jobs": 4 }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-gcc",
+      "configurePreset": "linux-gcc",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "linux-clang",
+      "configurePreset": "linux-clang",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "linux-clang-asan-ubsan",
+      "configurePreset": "linux-clang-asan-ubsan",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "linux-gcc-tsan",
+      "configurePreset": "linux-gcc-tsan",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "linux-gcc-vcpkg",
+      "configurePreset": "linux-gcc-vcpkg",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "windows-msvc",
+      "configurePreset": "windows-msvc",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

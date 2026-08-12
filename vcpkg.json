@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "arena-core-server",
+  "version-string": "0.1.0-dev",
+  "builtin-baseline": "2f1d605400c8727cc00c15797aba796c88ccd523",
+  "default-features": [
+    "data",
+    "rules"
+  ],
+  "dependencies": [
+    "boost-asio",
+    "boost-system",
+    "boost-thread",
+    "gtest",
+    "nlohmann-json",
+    "protobuf",
+    "spdlog"
+  ],
+  "features": {
+    "data": {
+      "description": "M5 Redis and MySQL adapters",
+      "dependencies": [
+        "mysql-connector-cpp",
+        "hiredis"
+      ]
+    },
+    "observer": {
+      "description": "M6 HTTP observer and metrics",
+      "dependencies": [
+        "boost-beast",
+        "prometheus-cpp"
+      ]
+    },
+    "rules": {
+      "description": "M4/M5 embedded deterministic Lua rules",
+      "dependencies": [
+        "lua"
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "regression-8-players",
+  "host": "127.0.0.1",
+  "port": 49110,
+  "seed": 20260814,
+  "pair_count": 4,
+  "rounds_per_pair": 1,
+  "duration_seconds": 3,
+  "heartbeat_interval_ms": 500,
+  "match_wait_ms": 5000,
+  "mmr_base": 1000,
+  "mmr_stride": 100,
+  "mmr_bucket_count": 1
+}

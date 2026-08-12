@@ -1,0 +1,17 @@
+/out/
+/build/
+/vcpkg_installed/
+/.runtime/
+/.env
+/.cache/
+/.idea/
+/.vscode/
+*.log
+*.user
+*.suo
+*.swp
+compile_commands.json
+.DS_Store
+
+.codex/harness-reviews/*.md
+!.codex/harness-reviews/.gitkeep

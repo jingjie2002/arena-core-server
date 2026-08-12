@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Harness Init"
+  short_description: "Initialize or sync the Codex Harness project template."
+  default_prompt: "Use codex-harness-init to initialize this project with the Codex Harness template."

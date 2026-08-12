@@ -1,0 +1,42 @@
+# Extra safety rules for Codex command execution outside the sandbox.
+
+prefix_rule(
+    pattern = ["rm", "-rf"],
+    decision = "forbidden",
+    justification = "禁止递归强制删除；请先说明清理范围，并优先使用可回滚方式。",
+    match = ["rm -rf dist"],
+)
+prefix_rule(
+    pattern = ["git", "push", "--force"],
+    decision = "forbidden",
+    justification = "禁止直接强制推送；如确需改写远端历史，先说明原因并使用 --force-with-lease。",
+    match = ["git push --force"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", "-f"],
+    decision = "forbidden",
+    justification = "禁止直接强制推送；如确需改写远端历史，先说明原因并使用 --force-with-lease。",
+    match = ["git push -f"],
+)
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "prompt",
+    justification = "硬重置会丢弃本地改动，必须先让用户确认影响范围。",
+    match = ["git reset --hard HEAD"],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", "-fd"],
+    decision = "prompt",
+    justification = "清理未跟踪文件可能删除用户资料，必须先确认。",
+    match = ["git clean -fd"],
+)
+
+prefix_rule(
+    pattern = ["Remove-Item"],
+    decision = "prompt",
+    justification = "PowerShell 删除操作需要确认目标和影响范围。",
+    match = ["Remove-Item dist -Recurse -Force"],
+)

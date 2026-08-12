@@ -1,0 +1,52 @@
+{
+  "environment": "dev",
+  "network": {
+    "bind_address": "127.0.0.1",
+    "tcp_port": 9100,
+    "observer_port": 8080,
+    "max_frame_bytes": 65536
+  },
+  "execution": {
+    "io_threads": 2,
+    "storage_threads": 4,
+    "storage_queue_capacity": 512
+  },
+  "logging": {
+    "level": "info",
+    "file": ""
+  },
+  "session": {
+    "hello_timeout_ms": 5000,
+    "idle_timeout_ms": 30000,
+    "reconnect_window_ms": 15000
+  },
+  "observer": {
+    "enabled": true,
+    "demo_mode": false,
+    "static_root": "web/observer",
+    "max_events": 2048
+  },
+  "data": {
+    "enabled": true,
+    "mysql": {
+      "uri": "tcp://127.0.0.1:3306",
+      "user": "arena",
+      "password_env": "ARENA_MYSQL_PASSWORD",
+      "schema": "arena"
+    },
+    "redis": {
+      "host": "127.0.0.1",
+      "port": 6379,
+      "database": 0,
+      "password_env": "ARENA_REDIS_PASSWORD",
+      "key_prefix": "arena:dev:",
+      "connect_timeout_ms": 500
+    },
+    "rules": {
+      "match_script": "rules/match_rule.lua",
+      "score_script": "rules/score_rule.lua"
+    },
+    "repair_interval_ms": 2000,
+    "repair_batch_size": 64
+  }
+}

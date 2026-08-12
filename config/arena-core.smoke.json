@@ -1,0 +1,23 @@
+{
+  "environment": "smoke",
+  "network": {
+    "bind_address": "127.0.0.1",
+    "tcp_port": 19100,
+    "observer_port": 18080,
+    "max_frame_bytes": 65536
+  },
+  "execution": {
+    "io_threads": 2,
+    "storage_threads": 2,
+    "storage_queue_capacity": 64
+  },
+  "logging": {
+    "level": "info",
+    "file": ""
+  },
+  "session": {
+    "hello_timeout_ms": 5000,
+    "idle_timeout_ms": 30000,
+    "reconnect_window_ms": 15000
+  }
+}

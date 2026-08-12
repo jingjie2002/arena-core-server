@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Harness Mode"
+  short_description: "Switch Codex Harness mode and phase."
+  default_prompt: "Use codex-harness-mode to switch the current Harness mode or phase."

@@ -1,0 +1,15 @@
+{
+  "name": "preflight-500-connections-250-rooms-5-seconds",
+  "host": "127.0.0.1",
+  "port": 49210,
+  "seed": 20260815,
+  "pair_count": 250,
+  "rounds_per_pair": 1,
+  "duration_seconds": 5,
+  "heartbeat_interval_ms": 1000,
+  "queue_stagger_ms": 0,
+  "match_wait_ms": 15000,
+  "mmr_base": 1000,
+  "mmr_stride": 100,
+  "mmr_bucket_count": 1
+}

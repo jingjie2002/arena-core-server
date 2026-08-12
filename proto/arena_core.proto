@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+package arena_core.protocol.v1;
+
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  HELLO = 1;
+  HELLO_ACK = 2;
+  HEARTBEAT = 3;
+  HEARTBEAT_ACK = 4;
+  QUEUE_MATCH = 10;
+  MATCH_QUEUED = 11;
+  CANCEL_MATCH = 12;
+  MATCH_CANCELLED = 13;
+  MATCH_FOUND = 14;
+  JOIN_ROOM = 20;
+  ROOM_JOINED = 21;
+  READY_ROOM = 22;
+  ROOM_STATE_CHANGED = 23;
+  LEAVE_ROOM = 24;
+  ROOM_LEFT = 25;
+  GET_RANK = 30;
+  RANK_RESULT = 31;
+  ERROR_RESPONSE = 100;
+}
+
+message Envelope {
+  uint32 protocol_version = 1;
+  MessageType message_type = 2;
+  uint64 request_id = 3;
+  bytes session_token = 4;
+  bytes payload = 5;
+}
+
+message Hello {
+  string player_id = 1;
+  bytes reconnect_token = 2;
+}
+
+message HelloAck {
+  bytes session_token = 1;
+  bytes reconnect_token = 2;
+  bool resumed = 3;
+  uint64 generation = 4;
+}
+
+message Heartbeat {
+  uint64 client_time_ms = 1;
+}
+
+message HeartbeatAck {
+  uint64 server_time_ms = 1;
+}
+
+message QueueMatch {
+  string mode = 1;
+  int32 mmr = 2;
+  uint32 max_wait_ms = 3;
+}
+
+message MatchQueued {
+  string ticket_id = 1;
+  uint64 expires_at_ms = 2;
+}
+
+message CancelMatch {
+  string ticket_id = 1;
+}
+
+message MatchCancelled {
+  string ticket_id = 1;
+  string state = 2;
+}
+
+message MatchFound {
+  string ticket_id = 1;
+  string match_id = 2;
+  string room_id = 3;
+  string room_server = 4;
+  bytes join_token = 5;
+  string opponent_id = 6;
+}
+
+message JoinRoom {
+  string match_id = 1;
+  string room_id = 2;
+  string room_server = 3;
+  string player_id = 4;
+  bytes join_token = 5;
+}
+
+message RoomJoined {
+  string room_id = 1;
+  string state = 2;
+}
+
+message ReadyRoom {
+  string room_id = 1;
+}
+
+message RoomStateChanged {
+  string room_id = 1;
+  string state = 2;
+  repeated string joined_players = 3;
+  repeated string ready_players = 4;
+  string winner_id = 5;
+  string loser_id = 6;
+}
+
+message LeaveRoom {
+  string room_id = 1;
+}
+
+message RoomLeft {
+  string room_id = 1;
+  string state = 2;
+}
+
+message GetRank {
+  string leaderboard = 1;
+  string player_id = 2;
+  uint32 neighbor_count = 3;
+}
+
+message RankEntry {
+  string player_id = 1;
+  int32 score = 2;
+  uint32 rank = 3;
+}
+
+message RankResult {
+  string leaderboard = 1;
+  RankEntry player = 2;
+  repeated RankEntry neighbors = 3;
+  string cache_state = 4;
+}
+
+message ErrorResponse {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+}

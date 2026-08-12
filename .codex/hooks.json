@@ -1,0 +1,87 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|shell_command|functions.shell_command|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); node \"$root/.codex/hooks/pre-tool-check.mjs\"'",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$root = git rev-parse --show-toplevel 2>$null; if (-not $root) { $root = (Get-Location).Path }; node (Join-Path $root '.codex/hooks/pre-tool-check.mjs')\"",
+            "timeout": 30,
+            "statusMessage": "Harness: checking tool use"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash|PowerShell|shell_command|functions.shell_command|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); node \"$root/.codex/hooks/pre-tool-check.mjs\"'",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$root = git rev-parse --show-toplevel 2>$null; if (-not $root) { $root = (Get-Location).Path }; node (Join-Path $root '.codex/hooks/pre-tool-check.mjs')\"",
+            "timeout": 30,
+            "statusMessage": "Harness: checking permission request"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); node \"$root/.codex/hooks/post-tool-check.mjs\"'",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$root = git rev-parse --show-toplevel 2>$null; if (-not $root) { $root = (Get-Location).Path }; node (Join-Path $root '.codex/hooks/post-tool-check.mjs')\"",
+            "timeout": 60,
+            "statusMessage": "Harness: formatting edited file"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); node \"$root/.codex/hooks/session-context.mjs\"'",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$root = git rev-parse --show-toplevel 2>$null; if (-not $root) { $root = (Get-Location).Path }; node (Join-Path $root '.codex/hooks/session-context.mjs')\"",
+            "timeout": 30,
+            "statusMessage": "Harness: loading session context"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); node \"$root/.codex/hooks/pre-compact.mjs\"'",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$root = git rev-parse --show-toplevel 2>$null; if (-not $root) { $root = (Get-Location).Path }; node (Join-Path $root '.codex/hooks/pre-compact.mjs')\"",
+            "timeout": 30,
+            "statusMessage": "Harness: saving compact snapshot"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); node \"$root/.codex/hooks/session-review.mjs\"'",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$root = git rev-parse --show-toplevel 2>$null; if (-not $root) { $root = (Get-Location).Path }; node (Join-Path $root '.codex/hooks/session-review.mjs')\"",
+            "timeout": 60,
+            "statusMessage": "Harness: writing review report"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "environment": "m7-soak",
+  "network": {
+    "bind_address": "127.0.0.1",
+    "tcp_port": 49210,
+    "observer_port": 49220,
+    "max_frame_bytes": 65536
+  },
+  "execution": {
+    "io_threads": 8,
+    "storage_threads": 2,
+    "storage_queue_capacity": 1024
+  },
+  "logging": {
+    "level": "warn",
+    "file": ""
+  },
+  "session": {
+    "hello_timeout_ms": 10000,
+    "idle_timeout_ms": 30000,
+    "reconnect_window_ms": 15000
+  },
+  "observer": {
+    "enabled": true,
+    "demo_mode": false,
+    "static_root": "web/observer",
+    "max_events": 8192
+  },
+  "data": {
+    "enabled": false
+  }
+}
