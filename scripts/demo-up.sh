@@ -35,7 +35,8 @@ cat > "${config_path}" <<JSON
   },
   "observer": {
     "enabled": true,
-    "demo_mode": false,
+    "demo_mode": true,
+    "allow_non_loopback_demo": true,
     "static_root": "web/observer",
     "max_events": 2048
   },

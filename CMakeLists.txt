@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
   arena_core_server
-  VERSION 1.0.0
+  VERSION 1.0.1
   DESCRIPTION "Jingyu deterministic 1v1 game server"
   LANGUAGES CXX
 )

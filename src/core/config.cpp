@@ -81,10 +81,16 @@ Error validate_app_config(const AppConfig& config) {
       return make_error(ErrorCode::kConfigValidationFailed,
                         "observer.max_events must be between 16 and 100000");
     }
-    if (config.observer.demo_mode && config.network.bind_address != "127.0.0.1" &&
-        config.network.bind_address != "::1") {
+    const bool loopback = config.network.bind_address == "127.0.0.1" ||
+                          config.network.bind_address == "::1";
+    if (config.observer.demo_mode && !loopback &&
+        !config.observer.allow_non_loopback_demo) {
       return make_error(ErrorCode::kConfigValidationFailed,
-                        "observer demo mode requires a loopback bind address");
+                        "observer demo mode requires loopback or an explicit trusted proxy override");
+    }
+    if (config.observer.allow_non_loopback_demo && !config.observer.demo_mode) {
+      return make_error(ErrorCode::kConfigValidationFailed,
+                        "observer.allow_non_loopback_demo requires observer.demo_mode");
     }
   }
 
@@ -152,6 +158,7 @@ ConfigResult load_app_config(const std::filesystem::path& path) {
     if (const auto it = document.find("observer"); it != document.end()) {
       read_if_present(*it, "enabled", config.observer.enabled);
       read_if_present(*it, "demo_mode", config.observer.demo_mode);
+      read_if_present(*it, "allow_non_loopback_demo", config.observer.allow_non_loopback_demo);
       read_if_present(*it, "static_root", config.observer.static_root);
       read_if_present(*it, "max_events", config.observer.max_events);
     }

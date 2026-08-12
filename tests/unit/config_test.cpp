@@ -92,6 +92,21 @@ TEST(ConfigTest, RejectsDemoModeOnNonLoopbackAddress) {
   EXPECT_EQ(error.code, ErrorCode::kConfigValidationFailed);
 }
 
+TEST(ConfigTest, AllowsDemoModeBehindExplicitTrustedLoopbackProxy) {
+  AppConfig config;
+  config.network.bind_address = "0.0.0.0";
+  config.observer.demo_mode = true;
+  config.observer.allow_non_loopback_demo = true;
+  EXPECT_FALSE(validate_app_config(config));
+}
+
+TEST(ConfigTest, RejectsTrustedProxyOverrideWhenDemoModeIsDisabled) {
+  AppConfig config;
+  config.observer.allow_non_loopback_demo = true;
+  const auto error = validate_app_config(config);
+  EXPECT_EQ(error.code, ErrorCode::kConfigValidationFailed);
+}
+
 TEST(ConfigTest, ReportsMissingFile) {
   const auto result = load_app_config(std::filesystem::temp_directory_path() / "arena-core-does-not-exist.json");
   ASSERT_FALSE(result.ok());

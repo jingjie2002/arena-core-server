@@ -69,6 +69,7 @@ struct DataConfig {
 struct ObserverConfig {
   bool enabled{true};
   bool demo_mode{false};
+  bool allow_non_loopback_demo{false};
   std::string static_root{"web/observer"};
   std::size_t max_events{2'048};
 };

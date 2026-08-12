@@ -1,11 +1,11 @@
 # v1 需求—测试矩阵
 
-- 状态：已更新至 M7 实现证据
+- 状态：已更新至 v1.0.1 修复证据
 - 说明：`计划` 表示测试入口尚待对应里程碑实现；实现后必须补充命令和证据链接。
 
 | 需求 | 主要验证 | 层级 | 里程碑 | 当前 |
 |---|---|---|---|---|
-| SYS-001 | 配置解析、依赖失败、健康状态测试 | unit/integration | M1/M5 | 通过：配置/自检、MySQL 健康检查及 data-enabled 生产启动/停止 |
+| SYS-001 | 配置解析、依赖失败、健康状态测试 | unit/integration | M1/M5 | 通过：配置/自检、MySQL 健康检查、data-enabled 生产启动/停止及受信任 loopback 代理 Demo 校验 |
 | NET-001 | 分片、合帧、零长、边界与超长帧测试 | unit/integration | M3 | 通过：M3 frame + 真实 TCP 分片/合帧/上限 |
 | NET-002 | 版本、类型、畸形 Protobuf、关闭策略测试 | integration | M3 | 通过：M3 协议错误响应与断开测试 |
 | SES-001 | Hello 截止、令牌签发、非法 player 测试 | integration | M3 | 通过：M2/M3 领域与 TCP 集成 |
@@ -26,7 +26,7 @@
 | RNK-001 | 排序、并列、邻近查询测试 | unit/integration | M5 | 通过：内存与真实 Redis 排序、player_id 并列稳定序、邻近查询 |
 | RNK-002 | Redis 失败、dirty 保留、修复重放测试 | integration/fault | M5/M7 | 通过：真实 Redis 失败保留 dirty，恢复后重放/全量重建；20 轮依赖故障序列无半结算 |
 | LUA-001 | golden、版本校验、非法脚本和确定性测试 | unit | M4/M5 | 通过：Redis 原子脚本；嵌入规则版本、边界、确定性、能力隔离和指令预算 |
-| OBS-001 | 快照隔离、事件顺序和慢消费者测试 | unit/integration | M6 | 通过：不可变 JSON 快照、有限事件缺口、trace 顺序、只读 HTTP 与真实 TCP→Room→Observer |
+| OBS-001 | 快照隔离、事件顺序和慢消费者测试 | unit/integration | M6 | 通过：不可变 JSON 快照、有限事件缺口、trace 顺序、只读 HTTP、真实 TCP→Room→Observer 与 Compose Demo 入口探针 |
 | QA-001 | Robot 完整双玩家链路 | e2e | M7 | 通过：真实 TCP 完成连接、匹配、进房、准备、结算和查榜；8 人并发形成 4 个房间 |
 | QA-002 | 固定种子、依赖故障、回放一致性 | e2e/fault | M7 | 通过：固定场景报告可在重启后回放核对；依赖故障与恢复序列通过 |
 | OPS-001 | 各状态下 SIGTERM 排空与截止测试 | integration | M7 | 通过：覆盖排队、已入房、活跃连接、已完成和真实数据依赖；E2E 最慢退出 105 ms |
@@ -63,6 +63,14 @@
 - Sanitizer：Clang ASan+UBSan 80/80 并通过同构建 E2E；GCC TSan 目标集 `unit|protocol|network|qa` 50/50。Boost.Asio 的 fence 工具链提示仅在 TSan 构建中保留为警告。
 - 稳定性：`./scripts/dev/m7-soak.sh out/build/linux-gcc scenarios/qa/soak-500-connections.json`；500 连接、250 房间保持 600 秒，业务错误 0，服务峰值 RSS 22.5 MiB，P99 完整业务闭环约 370.716 ms。
 - 完整指标与边界见 `docs/quality/M7-stability-report-2026-08-12.md`。`clang-format` 在当前环境不可用，因此未声称自动格式检查通过；Shell/JSON 语法、尾随空白、GCC/Clang 严格构建均已验证。
+
+## v1.0.1 修复证据
+
+- 根因复现：Compose 页面三个 Demo POST 均返回 HTTP 403 `demo_mode_disabled`，确认是启动配置关闭入口，不是用户误操作或业务服务损坏。
+- 双编译器：GCC/Clang 各 82/82；新增“显式受信任代理允许 Demo”和“Demo 关闭时拒绝代理例外”两项配置测试。
+- 主 Compose 与镜像：镜像内 GCC 82/82；Robot、MySQL、Redis、观察台和无副作用 Demo 探针通过；服务版本为 `1.0.1`。
+- clean-copy：全新临时源码目录 GCC 82/82，独立 Compose/数据卷和完整 smoke 通过。
+- 浏览器：三按钮依次显示正确中文结论，页面错误日志为 0。完整操作见 `docs/operations/v1.0.1-observer-demo-fix-2026-08-12.md`。
 
 ## 证据更新规则
 

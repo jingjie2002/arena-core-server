@@ -64,7 +64,7 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
             "copy_root": sys.argv[2],
             "compose_project": sys.argv[3],
             "native_preset": "linux-gcc",
-            "native_tests": 80,
+            "native_tests": 82,
             "compose_tcp_port": 50110,
             "compose_observer_port": 50120,
             "excluded": [".git", "out", "build", ".runtime", "vcpkg_installed", ".cache"],

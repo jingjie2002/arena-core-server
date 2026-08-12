@@ -40,10 +40,23 @@ if overview.get("service") != "arena-core-server":
     raise SystemExit(f"unexpected observer response: {overview}")
 PY
 
+demo_probe_status="$(
+  curl --silent --show-error \
+    --output /dev/null \
+    --write-out '%{http_code}' \
+    --request POST \
+    --header 'X-Arena-Demo: 1' \
+    "http://127.0.0.1:${observer_port}/api/demo/scenarios/__smoke_probe__"
+)"
+if [[ "${demo_probe_status}" != "404" ]]; then
+  echo "observer demo endpoint is unavailable: expected probe status 404, got ${demo_probe_status}" >&2
+  exit 1
+fi
+
 docker compose exec -T -e "MYSQL_PWD=${ARENA_DEMO_MYSQL_PASSWORD:-arena_demo_local}" mysql mysql \
   -uarena \
   -Nse "SELECT COUNT(*) FROM settlements;" arena | grep -Eq '^[1-9][0-9]*$'
 
 docker compose exec -T redis redis-cli EXISTS arena:demo:rank:duel:season-1 | grep -qx 1
 
-printf 'smoke passed: TCP -> match -> room -> MySQL settlement -> Redis rank -> observer\n'
+printf 'smoke passed: TCP -> match -> room -> MySQL settlement -> Redis rank -> observer demo\n'

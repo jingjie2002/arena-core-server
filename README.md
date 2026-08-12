@@ -4,7 +4,7 @@
 
 `TCP/Protobuf 会话 → 心跳与重连 → 1v1 匹配 → 房间准备 → 服务端确定结果 → MySQL 事务结算 → Redis 排行 → Web 观察台`
 
-当前版本：`1.0.0`。M0—M8 的实现、双编译器回归、隔离 clean-copy、Compose 重启与真实业务 smoke 均已完成；公开 GitHub 只是可选的外部发布动作。
+当前版本：`1.0.1`。M0—M8 的实现、双编译器回归、隔离 clean-copy、Compose 重启与真实业务 smoke 均已完成；`1.0.1` 修复了 Compose 观察台按钮未启用的问题。
 
 ![竞域观察台](docs/assets/arena-observer-overview.png)
 
@@ -104,7 +104,7 @@ ctest --preset linux-clang
 
 | 证据 | 实测结果 |
 |---|---|
-| GCC / Clang 普通回归 | 各 80/80，含 1 个按设计跳过的真实依赖入口；隔离脚本另行实际执行 |
+| GCC / Clang 普通回归 | v1.0.1 各 82/82，含 1 个按设计跳过的真实依赖入口；隔离脚本另行实际执行 |
 | 真实 MySQL / Redis | 两套编译器各 12/12，完整 Robot 数据链通过 |
 | Clang ASan + UBSan | 80/80，并通过 M7 E2E |
 | GCC TSan 目标集 | 50/50；Boost.Asio fence 工具链限制有明确记录 |
@@ -132,6 +132,7 @@ ctest --preset linux-clang
 - [真实故障复盘](docs/incident-reviews.md)
 - [已知限制](docs/known-limitations.md)
 - [运维与排障](docs/operations/runbook.md)
+- [v1.0.1 修复说明](docs/release-notes-v1.0.1.md)
 - [v1.0.0 发布说明](docs/release-notes-v1.0.0.md)
 
 规格基线仍保存在 `docs/specs/`，关键架构决定保存在 `docs/adr/`。
@@ -139,10 +140,11 @@ ctest --preset linux-clang
 ## 安全与边界
 
 - Compose 只把 TCP/观察台发布到宿主机 `127.0.0.1`，MySQL/Redis 不发布宿主机端口。
+- 三个演示按钮只在受信任的 Compose 私有网络中启用，并通过仅绑定宿主机 `127.0.0.1` 的 HAProxy 访问；普通非本机配置仍拒绝演示写操作。
 - 配置只保存环境变量名称，不保存真实凭证；演示默认密码仅用于本机隔离网络，公开部署前必须更换。
 - v1 不包含图形客户端、战斗玩法、账号/支付、微服务、Kubernetes、云部署、高可用或商业上线承诺。
 - 当前不应把项目描述成“生产级在线游戏平台”；它是可复现、可解释、有真实测试证据的单机模块化服务端工程。
 
 ## 版本与许可
 
-本地仓库以 `v1.0.0` 作为完成基线，并采用 [MIT License](LICENSE)。源码尚未上传到公开 GitHub，也没有替项目所有者创建远端 Release；公开发布时可以直接推送本地 `main` 与 `v1.0.0` 标签，不需要改动项目内容。
+本地仓库保留 `v1.0.0` 完成基线，并以 `v1.0.1` 作为当前修复版本，采用 [MIT License](LICENSE)。源码尚未上传到公开 GitHub，也没有替项目所有者创建远端 Release；公开发布时可推送本地 `main` 与两个版本标签。

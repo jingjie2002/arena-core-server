@@ -22,7 +22,7 @@ jobs:
           test -f compose.yaml
           test -f LICENSE
           test -f docs/known-limitations.md
-          grep -q 'kProjectVersion = "1.0.0"' include/arena_core/core/version.hpp
+          grep -q 'kProjectVersion = "1.0.1"' include/arena_core/core/version.hpp
           ! grep -RInE '[[:blank:]]+$' README.md Dockerfile compose.yaml deploy scripts docs
       - name: Validate Compose without starting services
         run: docker compose config --quiet
