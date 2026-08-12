@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check public entry scripts
         run: |
-          bash -n scripts/doctor.sh scripts/demo-up.sh scripts/smoke.sh scripts/demo-down.sh scripts/release/m8-clean-copy-check.sh
+          bash -n scripts/doctor.sh scripts/demo-up.sh scripts/smoke.sh scripts/demo-down.sh scripts/release/m8-clean-copy-check.sh scripts/release/m8-local-clone-check.sh
           test -f README.md
           test -f Dockerfile
           test -f compose.yaml

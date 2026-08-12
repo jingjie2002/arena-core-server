@@ -31,3 +31,5 @@
 完整需求映射见 `docs/quality/requirements-test-matrix.md`，实测数值见 `docs/quality/M7-stability-report-2026-08-12.md`。
 
 M8 的 release isolation 会复制源码到临时目录，明确排除 `.git`、`out`、`build`、`.runtime`、vcpkg 缓存和旧数据卷；结束时自动删除临时源码、容器和数据卷，只把摘要写回 `.runtime/m8-clean-copy-summary.json`。
+
+首次本地发布还会运行 `scripts/release/m8-local-clone-check.sh`：它只读取 Git 已提交内容，克隆到临时 Linux 目录后重复 GCC 与 Compose 验收，用来发现未提交文件依赖和 Git 可执行位问题。
