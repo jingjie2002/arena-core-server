@@ -13,6 +13,8 @@
 - 业务边界：负责战斗之外的会话、重连、匹配、房间、内部结果接入、MySQL 结算、Redis 排行与修复；不实现移动、技能和战斗。
 - 项目形态：独立服务端参考工程 + 真实 TCP Robot/示例客户端 + Web 运行控制台 + MySQL/Redis Compose，不是通用框架或普通玩家产品。
 - v1.1 核心：保留已验证后台，增加真实 Robot 场景控制、连续 trace 展示、结算/缓存证据和最小客户端接入说明。
+- 控制台形态：从固定按钮升级为可变参数场景实验台；本机使用者能组合安全输入并重放，独立 Lab Controller 驱动真实 Robot 和受控故障，Observer 仍只读。
+- 安全边界：不允许页面直接热改业务对象、数据库、任意 Lua/SQL/Shell 或正式服务配置；远程多人使用需另行增加认证、权限和审计，不纳入当前本机 v1.1。
 - 发布边界：真实演示、README 定位和个人讲解未完成前，不上传 GitHub。
 - 权威草案：`docs/specs/project-positioning-and-v1.1-requirements-draft.md`；确认后再形成实施计划并切换 `full/build`。
 
