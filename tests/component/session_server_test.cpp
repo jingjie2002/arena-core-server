@@ -340,5 +340,29 @@ TEST(SessionRegistryTest, StaleGenerationCannotRevokeResumedSession) {
   EXPECT_EQ(registry.size(), 0U);
 }
 
+TEST(SessionRegistryTest, SweptReconnectTokenRetainsStableExpiredMeaning) {
+  auto tokens = std::make_shared<DeterministicTokenGenerator>();
+  SessionRegistry registry(tokens);
+  const auto now = domain::TimePoint{};
+  auto opened = registry.open_new("player-1", now);
+  ASSERT_TRUE(opened.ok());
+  registry.mark_disconnected(opened.value->reconnect_token, opened.value->generation,
+                             now + 100ms);
+
+  EXPECT_EQ(registry.sweep_expired(now + 100ms), 1U);
+  EXPECT_EQ(registry.size(), 0U);
+  const auto expired = registry.resume("player-1", opened.value->reconnect_token,
+                                       now + 200ms);
+  ASSERT_FALSE(expired.ok());
+  EXPECT_EQ(expired.error.code, ErrorCode::kSessionReconnectExpired);
+
+  auto replacement = registry.open_new("player-1", now + 200ms);
+  EXPECT_TRUE(replacement.ok());
+  const auto forgotten = registry.resume("player-1", opened.value->reconnect_token,
+                                         now + std::chrono::minutes(2));
+  ASSERT_FALSE(forgotten.ok());
+  EXPECT_EQ(forgotten.error.code, ErrorCode::kSessionTokenInvalid);
+}
+
 }  // namespace
 }  // namespace arena_core::session

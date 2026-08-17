@@ -65,6 +65,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      toxiproxy:
+        condition: service_started
+        required: false
       migrate:
         condition: service_completed_successfully
     healthcheck:
@@ -92,6 +95,52 @@ services:
     depends_on:
       arena-core:
         condition: service_healthy
+    restart: unless-stopped
+
+  toxiproxy:
+    profiles: ["lab"]
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    command: ["-host=0.0.0.0", "-config", "/config/toxiproxy.json"]
+    volumes:
+      - ./.runtime/toxiproxy.json:/config/toxiproxy.json:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  arena-lab:
+    profiles: ["lab"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: ${ARENA_DEMO_IMAGE:-arena-core-server:local}
+    entrypoint: ["/opt/arena-core/bin/arena-core-lab"]
+    command: ["--config", "/opt/arena-core/.runtime/arena-lab.json"]
+    environment:
+      ARENA_RESULT_SERVICE_TOKEN: ${ARENA_RESULT_SERVICE_TOKEN:-arena-local-m9-token}
+    ports:
+      - "127.0.0.1:${ARENA_LAB_PORT:-49140}:8081"
+    volumes:
+      - ./.runtime:/opt/arena-core/.runtime
+    depends_on:
+      arena-core:
+        condition: service_healthy
+      toxiproxy:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - /opt/arena-core/bin/arena-core-lab
+        - --config
+        - /opt/arena-core/.runtime/arena-lab.json
+        - --health-check
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    init: true
+    stop_grace_period: 10s
     restart: unless-stopped
 
 volumes:

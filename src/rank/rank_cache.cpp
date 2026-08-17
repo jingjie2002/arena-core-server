@@ -35,6 +35,14 @@ Result<RedisContext> connect_redis(const RedisRankConfig& config) {
     return Result<RedisContext>::failure(
         make_error(ErrorCode::kDependencyRedisUnavailable, "Redis connection failed"));
   }
+  // The connect timeout alone does not bound commands on an established socket.
+  // Lab fault injection can deliberately stop Redis traffic, so apply the same
+  // deadline to reads and writes as well. This also prevents production repair
+  // workers from waiting forever on a half-open dependency connection.
+  if (redisSetTimeout(context.get(), timeout) != REDIS_OK) {
+    return Result<RedisContext>::failure(
+        make_error(ErrorCode::kDependencyRedisUnavailable, "Redis command timeout setup failed"));
+  }
   if (!config.password.empty()) {
     RedisReply auth(static_cast<redisReply*>(redisCommand(context.get(), "AUTH %b", config.password.data(),
                                                           config.password.size())),

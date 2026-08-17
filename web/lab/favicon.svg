@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="竞域">
+  <rect width="64" height="64" rx="12" fill="#090d11"/>
+  <path d="M14 16h14v6h-8v20h8v6H14z" fill="#c8ff3d"/>
+  <path d="M50 16H36v6h8v20h-8v6h14z" fill="#43e6f2"/>
+  <path d="M25 29h14v6H25z" fill="#f5f7fa"/>
+</svg>

@@ -9,6 +9,18 @@ observer_port="${ARENA_DEMO_OBSERVER_PORT:-49120}"
 cd "${project_root}"
 mkdir -p "${runtime_dir}"
 
+reset_lab_faults() {
+  if docker compose --profile lab ps --status running --services 2>/dev/null | grep -qx toxiproxy; then
+    docker compose --profile lab exec -T toxiproxy toxiproxy-cli reset >/dev/null 2>&1 || true
+  fi
+}
+on_error() {
+  local status=$?
+  reset_lab_faults
+  exit "${status}"
+}
+trap on_error ERR INT TERM
+
 docker compose ps --status running --services | grep -qx arena-core
 
 docker compose exec -T arena-core /opt/arena-core/bin/arena-core-robot \
@@ -50,8 +62,9 @@ demo_probe_status="$(
     --header 'X-Arena-Demo: 1' \
     "http://127.0.0.1:${observer_port}/api/demo/scenarios/__smoke_probe__"
 )"
-if [[ "${demo_probe_status}" != "404" ]]; then
-  echo "observer demo endpoint is unavailable: expected probe status 404, got ${demo_probe_status}" >&2
+expected_demo_status=403
+if [[ "${demo_probe_status}" != "${expected_demo_status}" ]]; then
+  echo "observer write-boundary probe: expected ${expected_demo_status}, got ${demo_probe_status}" >&2
   exit 1
 fi
 
@@ -61,4 +74,5 @@ docker compose exec -T -e "MYSQL_PWD=${ARENA_DEMO_MYSQL_PASSWORD:-arena_demo_loc
 
 docker compose exec -T redis redis-cli EXISTS arena:demo:rank:duel:season-1 | grep -qx 1
 
-printf 'smoke passed: TCP -> match -> room -> MySQL settlement -> Redis rank -> observer demo\n'
+printf 'smoke passed: TCP -> match -> room -> MySQL settlement -> Redis rank -> observer boundary\n'
+trap - ERR INT TERM

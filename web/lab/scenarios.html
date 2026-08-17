@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="选择竞域 QA 场景、调整安全参数并创建真实 Run。">
+  <title>场景实验台｜竞域 Lab</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="scenarios">
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="overview.html" aria-label="竞域 Lab 首页"><span class="brand-mark" aria-hidden="true">竞</span><span class="brand-copy"><strong>竞域</strong><small>Arena Core Lab</small></span></a>
+      <nav class="primary-nav" aria-label="主导航">
+        <a href="overview.html">服务概览</a><a href="scenarios.html" aria-current="page">场景实验台</a><a href="runs.html">运行详情</a><a href="integration.html">接入指南</a>
+      </nav>
+      <span class="lab-badge">仅限本地 Lab</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">Scenario Workbench</p>
+      <h1 id="page-title">改变条件，运行一条真实后台链路。</h1>
+      <p class="hero-copy">先选择服务端公布的测试场景，再调整经过约束的参数。页面不会直接修改数据库、服务内存，也不能执行任意命令。</p>
+    </section>
+
+    <section aria-labelledby="scenario-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">步骤 1</p><h2 id="scenario-title">选择场景</h2><p>这里只有当前 Lab 实例明确支持的场景；不可用项会保留说明但不能运行。</p></div>
+        <div class="status-line" id="scenario-service-status" role="status" aria-live="polite"><span class="status-dot loading"></span><span>读取场景能力…</span></div>
+      </div>
+      <div id="scenario-message" class="notice" hidden></div>
+      <div id="scenario-list" class="scenario-list" aria-busy="true">
+        <div class="panel empty-state span-all-columns"><div><span class="empty-state-mark">···</span><h3>正在向本机 Lab 获取场景</h3><p>页面不会显示预设的成功结果。</p></div></div>
+      </div>
+    </section>
+
+    <section class="section" id="scenario-workspace" aria-labelledby="parameter-title">
+      <div class="section-heading"><div><p class="eyebrow">步骤 2</p><h2 id="parameter-title">调整安全参数</h2><p>字段、范围、默认值和组合约束由版本化 Schema 决定。</p></div></div>
+      <div class="workspace-grid">
+        <div class="panel">
+          <div class="panel-header"><div><h3 id="selected-scenario-title">尚未选择场景</h3><p class="muted" id="selected-scenario-description">请先从上方选择一个可用场景。</p></div></div>
+          <div class="panel-body">
+            <form id="scenario-form" novalidate>
+              <div id="parameter-fields" class="field-grid">
+                <div class="empty-state full"><div><span class="empty-state-mark">01</span><h3>等待选择</h3><p>选择后才会从服务端读取参数定义。</p></div></div>
+              </div>
+              <div id="form-message" class="notice error" role="alert" hidden></div>
+              <div class="button-row">
+                <button class="button" id="start-run" type="submit" disabled>创建并运行</button>
+                <button class="button secondary" id="reset-parameters" type="button" disabled>恢复 Schema 默认值</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <aside class="panel sticky-panel" aria-labelledby="expected-title">
+          <div class="panel-header"><h3 id="expected-title">这次会自动检查什么</h3></div>
+          <div class="panel-body">
+            <ul class="expected-list" id="expected-list"><li>选择场景后，显示服务端声明的预期断言。</li></ul>
+            <div class="notice warning space-top-18">点击运行会创建新的 Run。一个 Lab 同时只允许一个活动 Run，结束时无论成功或失败都会执行清理。</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer"><div class="footer-inner"><span>参数只来自服务端 Schema</span><span>不接受 host、port、token、路径、SQL 或 Shell</span></div></footer>
+</body>
+</html>

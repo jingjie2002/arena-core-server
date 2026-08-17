@@ -78,11 +78,16 @@ TEST(ObserverHttpServerTest, ServesStaticDashboardAndReadOnlyApi) {
   EXPECT_EQ(page.result(), http::status::ok);
   EXPECT_NE(page.body().find("竞域"), std::string::npos);
   EXPECT_NE(page.body().find("这不是游戏画面"), std::string::npos);
-  EXPECT_NE(page.body().find("查看开发者技术明细"), std::string::npos);
+  EXPECT_NE(page.body().find("只读服务观察台"), std::string::npos);
+  EXPECT_NE(page.body().find("不提供写操作"), std::string::npos);
 
   const auto script = harness.request(http::verb::get, "/app.js");
   EXPECT_EQ(script.result(), http::status::ok);
-  EXPECT_NE(script.body().find("重复提交保护通过"), std::string::npos);
+  EXPECT_NE(script.body().find("重复提交已识别"), std::string::npos);
+
+  const auto favicon = harness.request(http::verb::get, "/favicon.svg");
+  EXPECT_EQ(favicon.result(), http::status::ok);
+  EXPECT_EQ(favicon[http::field::content_type], "image/svg+xml");
 
   const auto overview = harness.request(http::verb::get, "/api/overview");
   ASSERT_EQ(overview.result(), http::status::ok);

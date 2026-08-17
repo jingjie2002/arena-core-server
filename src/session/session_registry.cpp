@@ -6,6 +6,11 @@
 #include <utility>
 
 namespace arena_core::session {
+namespace {
+
+constexpr auto kExpiredTokenEvidenceWindow = std::chrono::minutes(1);
+
+}  // namespace
 
 SessionRegistry::SessionRegistry(std::shared_ptr<TokenGenerator> token_generator)
     : token_generator_(std::move(token_generator)) {}
@@ -22,6 +27,9 @@ Result<Authentication> SessionRegistry::open_new(std::string player_id, const do
       return Result<Authentication>::failure(
           make_error(ErrorCode::kSessionNotActive, "player already has an active or reconnectable session"));
     }
+    if (record != records_by_token_.end()) {
+      remember_expired_locked(record->first, record->second.player_id, now);
+    }
     erase_record_locked(player->second);
   }
 
@@ -37,13 +45,25 @@ Result<Authentication> SessionRegistry::resume(std::string player_id,
                                                 const domain::TimePoint now) {
   std::lock_guard<std::mutex> lock(mutex_);
   const auto existing = records_by_token_.find(reconnect_token);
-  if (existing == records_by_token_.end() || existing->second.player_id != player_id) {
+  if (existing == records_by_token_.end()) {
+    const auto expired = expired_by_token_.find(reconnect_token);
+    if (expired != expired_by_token_.end() && expired->second.player_id == player_id &&
+        now < expired->second.forget_after) {
+      return Result<Authentication>::failure(make_error(ErrorCode::kSessionReconnectExpired));
+    }
+    if (expired != expired_by_token_.end() && now >= expired->second.forget_after) {
+      expired_by_token_.erase(expired);
+    }
+    return Result<Authentication>::failure(make_error(ErrorCode::kSessionTokenInvalid));
+  }
+  if (existing->second.player_id != player_id) {
     return Result<Authentication>::failure(make_error(ErrorCode::kSessionTokenInvalid));
   }
   if (existing->second.connected) {
     return Result<Authentication>::failure(make_error(ErrorCode::kSessionTokenInvalid, "session is still connected"));
   }
   if (now >= existing->second.reconnect_deadline) {
+    remember_expired_locked(reconnect_token, existing->second.player_id, now);
     erase_record_locked(reconnect_token);
     return Result<Authentication>::failure(make_error(ErrorCode::kSessionReconnectExpired));
   }
@@ -106,9 +126,17 @@ std::shared_ptr<Session> SessionRegistry::find_transport(const std::string_view 
 
 std::size_t SessionRegistry::sweep_expired(const domain::TimePoint now) {
   std::lock_guard<std::mutex> lock(mutex_);
+  for (auto iterator = expired_by_token_.begin(); iterator != expired_by_token_.end();) {
+    if (now >= iterator->second.forget_after) {
+      iterator = expired_by_token_.erase(iterator);
+    } else {
+      ++iterator;
+    }
+  }
   std::size_t removed = 0;
   for (auto iterator = records_by_token_.begin(); iterator != records_by_token_.end();) {
     if (!iterator->second.connected && now >= iterator->second.reconnect_deadline) {
+      remember_expired_locked(iterator->first, iterator->second.player_id, now);
       token_by_player_.erase(iterator->second.player_id);
       iterator = records_by_token_.erase(iterator);
       ++removed;
@@ -131,6 +159,12 @@ void SessionRegistry::erase_record_locked(const std::string& reconnect_token) {
   }
   token_by_player_.erase(record->second.player_id);
   records_by_token_.erase(record);
+}
+
+void SessionRegistry::remember_expired_locked(const std::string& reconnect_token,
+                                              const std::string& player_id,
+                                              const domain::TimePoint now) {
+  expired_by_token_[reconnect_token] = ExpiredRecord{player_id, now + kExpiredTokenEvidenceWindow};
 }
 
 }  // namespace arena_core::session

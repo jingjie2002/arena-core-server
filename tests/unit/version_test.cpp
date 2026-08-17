@@ -9,7 +9,7 @@ namespace {
 TEST(LanguageContractTest, BuildUsesExactlyCpp17) {
   EXPECT_GE(kCxxLanguageLevel, 201703L);
   EXPECT_LT(kCxxLanguageLevel, 202002L);
-  EXPECT_EQ(kProjectVersion, "1.0.1");
+  EXPECT_EQ(kProjectVersion, "1.1.0");
   EXPECT_EQ(kProtocolVersion, "1");
 }
 

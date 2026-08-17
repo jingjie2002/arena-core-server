@@ -72,6 +72,9 @@ std::string content_type(const std::string_view path) {
   if (path.size() >= 4 && path.substr(path.size() - 4) == ".css") {
     return "text/css; charset=utf-8";
   }
+  if (path.size() >= 4 && path.substr(path.size() - 4) == ".svg") {
+    return "image/svg+xml";
+  }
   return "text/html; charset=utf-8";
 }
 
@@ -111,6 +114,8 @@ http::response<http::string_body> static_response(const ObserverHttpConfig& conf
     filename = "app.js";
   } else if (path == "/styles.css") {
     filename = "styles.css";
+  } else if (path == "/favicon.svg") {
+    filename = "favicon.svg";
   } else {
     return json_response(http::status::not_found, version, {{"error", "not_found"}});
   }

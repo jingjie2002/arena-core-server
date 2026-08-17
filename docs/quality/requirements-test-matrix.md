@@ -1,7 +1,7 @@
-# v1 需求—测试矩阵
+# v1 / v1.1 需求—测试矩阵
 
-- 状态：已更新至 v1.1 M9 可信结果接入证据
-- 说明：`计划` 表示测试入口尚待对应里程碑实现；实现后必须补充命令和证据链接。
+- 状态：v1.1 M9—M12 已实现并完成最终本地门禁；精确提交由 detached fresh-clone 再验证。
+- 说明：历史数字只证明对应旧提交；v1.1 结论以 M12 操作记录和最终 clone 摘要为准。
 
 | 需求 | 主要验证 | 层级 | 里程碑 | 当前 |
 |---|---|---|---|---|
@@ -11,7 +11,7 @@
 | SES-001 | Hello 截止、令牌签发、非法 player 测试 | integration | M3 | 通过：M2/M3 领域与 TCP 集成 |
 | SES-002 | FakeClock 心跳与超时测试 | unit/integration | M3 | 通过：FakeClock + 真实 timer/Heartbeat/idle |
 | SES-003 | 正常恢复、过期、轮换、旧连接竞态测试 | integration | M3 | 通过：token 双轮换与 stale generation 测试 |
-| SES-004 | 多来源 Stop、Sanitizer 与压力测试 | unit/stress | M3/M7 | 通过：幂等 Stop；ASan+UBSan 80/80、TSan 目标集 50/50；500 连接/250 房间/600 秒稳定性通过 |
+| SES-004 | 多来源 Stop、Sanitizer 与压力测试 | unit/stress | M3/M7/M12 | 通过：幂等 Stop；ASan+UBSan 119/119、TSan 目标集 103/103；500 连接/250 房间/600 秒、业务错误 0 |
 | MAT-001 | 入队、票据字段及正常配对测试 | unit/integration | M4 | 通过：M4 真实 TCP 双玩家流程 |
 | MAT-002 | 并发重复入队 Redis Lua 测试 | integration | M4 | 通过：业务重复拒绝 + Redis Lua duplicate guard |
 | MAT-003 | 取消、超时、终态迟到命令测试 | unit/integration | M4 | 通过：领域与真实 Session 推送 |
@@ -28,11 +28,21 @@
 | RNK-001 | 排序、并列、邻近查询测试 | unit/integration | M5 | 通过：内存与真实 Redis 排序、player_id 并列稳定序、邻近查询 |
 | RNK-002 | Redis 失败、dirty 保留、修复重放测试 | integration/fault | M5/M7 | 通过：真实 Redis 失败保留 dirty，恢复后重放/全量重建；20 轮依赖故障序列无半结算 |
 | LUA-001 | golden、版本校验、非法脚本和确定性测试 | unit | M4/M5 | 通过：Redis 原子脚本；嵌入规则版本、边界、确定性、能力隔离和指令预算 |
-| OBS-001 | 快照隔离、事件顺序和慢消费者测试 | unit/integration | M6 | 通过：不可变 JSON 快照、有限事件缺口、trace 顺序、只读 HTTP、真实 TCP→Room→Observer 与 Compose Demo 入口探针 |
+| OBS-001 | 快照隔离、事件顺序和慢消费者测试 | unit/integration | M6/M11 | 通过：v1.1 默认 Compose 只读、移除页面写按钮；Observer 单元/HTTP 与最终浏览器复核通过 |
 | QA-001 | Robot 完整双玩家链路 | e2e | M7/M9 | 通过：真实 TCP 完成连接、匹配、进房和准备；DemoBattleAdapter 通过可信 HTTP 提交后完成结算、结果推送与查榜 |
 | QA-002 | 固定种子、依赖故障、回放一致性 | e2e/fault | M7 | 通过：固定场景报告可在重启后回放核对；依赖故障与恢复序列通过 |
+| LAB-101 | 用户参数与运行环境严格分离，拒绝未知/敏感字段 | unit/http | M10 | 通过：Scenario parser、Schema、HTTP 白名单和双编译器全量 |
+| LAB-102 | 单活动 Run、合法状态机、持久事件/断言/清理 | unit/integration | M10 | 通过：Run engine、原子报告、取消/超时、连续 Run 与 cleanup |
+| LAB-103 | 完整对局参数驱动真实 TCP→房间→结果→结算→排行 | e2e | M10/M11 | 通过：Compose Lab 真实 4 人 2 房间及全套 smoke |
+| LAB-104 | 重连窗口内凭证轮换/generation，窗口外稳定过期 | unit/e2e | M10/M11 | 通过：opaque client、窗口内恢复与窗口外稳定错误 |
+| LAB-105 | 相同玩家 Envelope 重放只产生一次副作用 | unit/e2e | M10/M11 | 通过：queue/ready/rank/result-query 原样重发与单副作用断言 |
+| LAB-106 | 可信结果 exact 幂等、conflicting 拒绝、积分一次 | e2e | M10/M11 | 通过：receipt、冲突错误和排行一次变化语义断言 |
+| LAB-107 | Redis 真实代理故障、MySQL stale 事实、恢复 fresh | fault/e2e | M11 | 通过：固定 Toxiproxy、MySQL committed、dirty/stale、恢复 fresh 与 reset |
+| LAB-108 | replay 新 run_id 且保留不可变输入，不比较动态 ID | unit/e2e | M10/M12 | 通过：新 run_id、同场景/参数/seed/timeout 与语义断言 |
+| LAB-109 | 四页 UI 真实数据、桌面/390px、无 console/page error | browser | M11/M12 | 通过：四页、真实 Run、无横向溢出、Observer 只读、console/page error 0 |
 | OPS-001 | 各状态下 SIGTERM 排空与截止测试 | integration | M7 | 通过：覆盖排队、已入房、活跃连接、已完成和真实数据依赖；E2E 最慢退出 105 ms |
 | REL-001 | 空目录 fresh clone 按 README 全量执行 | manual/release | M8 | 通过：本地 Git `c0338e1` 克隆到临时 Linux 目录；直接执行脚本、GCC 80/80、全新 Compose/数据卷与完整 Robot smoke 通过 |
+| REL-002 | 精确 v1.1 commit 的双编译器、默认/Lab、真实依赖、Sanitizer、浏览器与 clean clone | release | M12 | 通过：本地全门禁完成；最终提交由 detached Git clone 执行 GCC 全量、默认/Lab Compose 与 clean 状态复核 |
 
 ## M0 已有证据
 
@@ -74,9 +84,15 @@
 - clean-copy：全新临时源码目录 GCC 82/82，独立 Compose/数据卷和完整 smoke 通过。
 - 浏览器：三按钮依次显示正确中文结论，页面错误日志为 0。完整操作见 `docs/operations/v1.0.1-observer-demo-fix-2026-08-12.md`。
 
+## v1.1 M9 历史证据与 M10—M12 最终状态
+
+- M9 在提交 `385d515` 取得 GCC/Clang 各 90 项、可信结果独立 E2E、真实 MySQL/Redis 与服务重启查询证据；它是新 Lab 开发前的可信结果基线。
+- M10/M11 新增 Lab Scenario/Run/HTTP/协议客户端/Toxiproxy 客户端、四页 UI 和 Compose profile；所有最终结论均来自实现收口后的重跑，不复用开发中间结果。
+- M12 最终结果：GCC/Clang 各 119、真实数据 12、ASan+UBSan 119、TSan 103、五场景/重放/取消/超时/cleanup、浏览器与 500/250/600 秒通过；完整命令和边界见 `docs/operations/M12-final-verification-2026-08-17.md`。
+
 ## 证据更新规则
 
 - 每个 `计划` 在实现后更新为 `通过`、`部分通过` 或 `阻塞`。
 - `通过` 必须附可重复命令；集成/E2E 还要注明依赖版本或 Compose 服务。
 - 失败和跳过项不得删除，必须记录原因和补偿计划。
-- M8 只有在全新 Linux Git clone 或独立 CI checkout 中重复成功后，REL-001 才能改为通过。
+- REL-002 只有在最终 v1.1 commit 的全新 Linux Git clone 或独立 CI checkout 中重复成功后才能改为通过。

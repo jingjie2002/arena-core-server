@@ -53,12 +53,21 @@ class SessionRegistry {
     std::weak_ptr<Session> transport;
   };
 
+  struct ExpiredRecord {
+    std::string player_id;
+    domain::TimePoint forget_after{};
+  };
+
   void erase_record_locked(const std::string& reconnect_token);
+  void remember_expired_locked(const std::string& reconnect_token,
+                               const std::string& player_id,
+                               domain::TimePoint now);
 
   std::shared_ptr<TokenGenerator> token_generator_;
   mutable std::mutex mutex_;
   std::unordered_map<std::string, Record> records_by_token_;
   std::unordered_map<std::string, std::string> token_by_player_;
+  std::unordered_map<std::string, ExpiredRecord> expired_by_token_;
 };
 
 }  // namespace arena_core::session

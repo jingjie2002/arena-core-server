@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="竞域游戏客户端、可信战斗模块与本地 Lab 的职责边界和接入流程。">
+  <title>接入指南｜竞域 Lab</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="integration">
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="overview.html" aria-label="竞域 Lab 首页"><span class="brand-mark" aria-hidden="true">竞</span><span class="brand-copy"><strong>竞域</strong><small>Arena Core Lab</small></span></a>
+      <nav class="primary-nav" aria-label="主导航"><a href="overview.html">服务概览</a><a href="scenarios.html">场景实验台</a><a href="runs.html">运行详情</a><a href="integration.html" aria-current="page">接入指南</a></nav>
+      <span class="lab-badge">仅限本地 Lab</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">Integration Boundary</p>
+      <h1 id="page-title">客户端参加比赛，可信模块宣布结果。</h1>
+      <p class="hero-copy">两类接入方权限不同。普通游戏客户端可以连接、匹配、准备和查询自己的结果，但<strong>不能宣布自己获胜</strong>；只有受信任的战斗模块能提交比赛事实。</p>
+    </section>
+
+    <section aria-labelledby="roles-title">
+      <div class="section-heading"><div><p class="eyebrow">先区分身份</p><h2 id="roles-title">两条接入链路，不能混用</h2></div><div class="status-line" id="integration-service-status" role="status" aria-live="polite"><span class="status-dot loading"></span><span>读取当前服务信息…</span></div></div>
+      <div class="card-grid two">
+        <article class="card role-card">
+          <span class="role-tag">普通权限 · TCP + Protobuf</span>
+          <h3>游戏客户端 / Robot</h3>
+          <p>建立 Session，发送心跳，排队匹配，携带凭证加入房间并 Ready；结算事务提交后接收通知，断线后可查询自己的比赛结果。</p>
+        </article>
+        <article class="card role-card trusted">
+          <span class="role-tag">受信任权限 · HTTP + JSON</span>
+          <h3>战斗服 / Demo Battle Adapter</h3>
+          <p>确认战斗已经结束后，使用独立服务凭证提交双方成员、胜负、规则版本与完成时间；重复提交受幂等保护。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="flow-title">
+      <div class="section-heading"><div><p class="eyebrow">完整链路</p><h2 id="flow-title">一场比赛如何走完</h2><p>胜负不会由房间临时编造，也不会由网页直接写入。</p></div></div>
+      <div class="flow" aria-label="比赛完整流程">
+        <article class="flow-step"><small>01</small><h3>连接</h3><p>客户端完成 Hello，建立可恢复的玩家 Session。</p></article>
+        <article class="flow-step"><small>02</small><h3>匹配</h3><p>提交 MMR 后进入 1v1 队列，服务端选择对手。</p></article>
+        <article class="flow-step"><small>03</small><h3>准备</h3><p>双方凭房间票据加入并 Ready，房间等待可信结果。</p></article>
+        <article class="flow-step"><small>04</small><h3>提交结果</h3><p>可信战斗模块通过内部接口提交比赛事实。</p></article>
+        <article class="flow-step"><small>05</small><h3>结算</h3><p>MySQL 提交后通知玩家；Redis 排行可独立修复。</p></article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="client-title">
+      <div class="section-heading"><div><p class="eyebrow">接入 A</p><h2 id="client-title">游戏客户端</h2><p>正式协议是长度帧包裹的 Protobuf Envelope。下面是职责顺序，不是可以直接复制运行的固定比赛数据。</p></div></div>
+      <div class="workspace-grid">
+        <article class="panel">
+          <div class="panel-header"><h3>客户端状态顺序</h3></div>
+          <div class="panel-body">
+            <dl class="definition-list">
+              <dt>Hello / Resume</dt><dd>首次连接建立身份；短暂断线时使用轮换后的恢复凭证重新绑定 Session。</dd>
+              <dt>Heartbeat</dt><dd>在服务端超时窗口内维持连接活跃，不承载游戏战斗状态。</dd>
+              <dt>Queue / Cancel</dt><dd>提交匹配请求或离开队列。相同请求 ID 的重试必须得到一致结果。</dd>
+              <dt>Join / Ready</dt><dd>收到 MatchFound 后，携带加入凭证进入指定 Room；双方准备后等待外部比赛结果。</dd>
+              <dt>Result Read</dt><dd>接收 MatchResultCommitted，或通过 GetMatchResult 查询自己参与过的比赛。</dd>
+            </dl>
+          </div>
+        </article>
+        <aside class="panel sticky-panel">
+          <div class="panel-header"><h3>客户端不能做什么</h3></div>
+          <div class="panel-body">
+            <div class="notice warning">玩家协议没有“提交胜负”的消息。客户端不能修改他人积分、直接操作排行榜，也不能绕过房间状态创建结算。</div>
+            <ul class="expected-list space-top-16"><li>不要把服务凭证打包进游戏客户端。</li><li>不要用 Observer 或 Lab API 代替玩家协议。</li><li>收到断线或超时时，按稳定错误码处理并保留请求幂等键。</li></ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="trusted-title">
+      <div class="section-heading"><div><p class="eyebrow">接入 B</p><h2 id="trusted-title">可信战斗模块</h2><p>结果入口默认关闭，只应在同机或私有网络启用。凭证来自运行环境，不能写进页面或日志。</p></div></div>
+      <div class="detail-grid">
+        <article class="panel">
+          <div class="panel-header"><h3>提交接口</h3></div>
+          <div class="panel-body">
+            <div class="code-block"><code>POST /internal/v1/match-results
+Authorization: Bearer &lt;service-token&gt;
+Content-Type: application/json
+
+{
+  "result_id": "&lt;全局幂等键&gt;",
+  "match_id": "&lt;已存在比赛&gt;",
+  "room_id": "&lt;对应房间&gt;",
+  "winner_id": "&lt;胜者&gt;",
+  "loser_id": "&lt;败者&gt;",
+  "rule_version": "&lt;已加载规则版本&gt;",
+  "finished_at": "&lt;UTC 时间&gt;"
+}</code></div>
+          </div>
+        </article>
+        <article class="panel">
+          <div class="panel-header"><h3>调用方必须保证</h3></div>
+          <div class="panel-body">
+            <ul class="expected-list"><li>result_id 全局唯一；网络重试必须复用同一个键和完全相同的内容。</li><li>双方成员必须与 Room roster 完全一致，胜者和败者都在其中。</li><li>只有战斗确实结束后才能提交，并提供 UTC 完成时间。</li><li>冲突响应不能改换 result_id 强行重试，应作为一致性问题告警。</li><li>查询只用于确认已提交事实，不会重新触发积分变更。</li></ul>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="permission-title">
+      <div class="section-heading"><div><p class="eyebrow">权限矩阵</p><h2 id="permission-title">哪个入口能做什么</h2></div></div>
+      <div class="panel"><div class="panel-body table-scroll"><table class="permission-table"><thead><tr><th>入口</th><th>主要使用者</th><th>读取</th><th>写入</th><th>默认边界</th></tr></thead><tbody><tr><td>玩家 TCP</td><td>游戏客户端</td><td>自己的会话、匹配、房间与结果</td><td>玩家请求；<span class="no">不能写胜负</span></td><td>按部署配置开放</td></tr><tr><td>可信结果 API</td><td>战斗服 / 适配器</td><td>幂等结果查询</td><td><span class="yes">提交比赛事实</span></td><td>loopback / 私有网络</td></tr><tr><td>Observer HTTP</td><td>研发与运维</td><td>只读快照和事件</td><td><span class="no">无业务写入</span></td><td>loopback</td></tr><tr><td>Lab Controller</td><td>本机研发与 QA</td><td>Schema、Run 和事件</td><td>启动/取消受控场景</td><td>仅 loopback，正式 profile 关闭</td></tr></tbody></table></div></div>
+    </section>
+  </main>
+
+  <footer class="footer"><div class="footer-inner"><span id="integration-service-label">等待当前服务信息</span><span>任何公开部署都不应暴露 Lab Controller</span></div></footer>
+</body>
+</html>

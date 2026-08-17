@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
   arena_core_server
-  VERSION 1.0.1
-  DESCRIPTION "Jingyu deterministic 1v1 game server"
+  VERSION 1.1.0
+  DESCRIPTION "Jingyu embeddable 1v1 game-server core and local scenario lab"
   LANGUAGES CXX
 )
 
@@ -192,7 +192,14 @@ arena_core_apply_compiler_policy(arena-core-server)
 
 add_library(arena_core_qa STATIC
   src/qa/demo_battle_adapter.cpp
+  src/qa/lab_app_config.cpp
+  src/qa/lab_http_server.cpp
+  src/qa/lab_protocol_client.cpp
+  src/qa/lab_run.cpp
+  src/qa/lab_scenario.cpp
+  src/qa/lab_scenarios.cpp
   src/qa/robot_scenario.cpp
+  src/qa/toxiproxy_client.cpp
 )
 add_library(arena_core::qa ALIAS arena_core_qa)
 target_include_directories(arena_core_qa
@@ -209,7 +216,11 @@ add_executable(arena-core-robot apps/robot/main.cpp)
 target_link_libraries(arena-core-robot PRIVATE arena_core::qa)
 arena_core_apply_compiler_policy(arena-core-robot)
 
-install(TARGETS arena-core-server arena-core-robot RUNTIME DESTINATION bin)
+add_executable(arena-core-lab apps/lab/main.cpp)
+target_link_libraries(arena-core-lab PRIVATE arena_core::qa)
+arena_core_apply_compiler_policy(arena-core-lab)
+
+install(TARGETS arena-core-server arena-core-robot arena-core-lab RUNTIME DESTINATION bin)
 install(DIRECTORY config/ DESTINATION config)
 install(DIRECTORY rules/ DESTINATION rules)
 install(DIRECTORY migrations/ DESTINATION migrations)
@@ -310,11 +321,29 @@ if(ARENA_BUILD_TESTS)
     PROPERTIES LABELS "qa" TIMEOUT 15
   )
 
+  add_executable(arena_core_lab_tests
+    tests/qa/lab_app_config_test.cpp
+    tests/qa/lab_http_server_test.cpp
+    tests/qa/lab_protocol_client_test.cpp
+    tests/qa/lab_run_test.cpp
+    tests/qa/lab_scenario_test.cpp
+    tests/qa/toxiproxy_client_test.cpp
+  )
+  target_link_libraries(arena_core_lab_tests PRIVATE arena_core::qa GTest::gtest_main)
+  target_compile_definitions(arena_core_lab_tests PRIVATE ARENA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  arena_core_apply_compiler_policy(arena_core_lab_tests)
+  gtest_discover_tests(arena_core_lab_tests
+    DISCOVERY_TIMEOUT 30
+    PROPERTIES LABELS "lab" TIMEOUT 20
+  )
+
   add_test(NAME arena_core_server_self_check COMMAND arena-core-server --self-check)
   add_test(NAME arena_core_robot_self_check COMMAND arena-core-robot --self-check)
+  add_test(NAME arena_core_lab_self_check COMMAND arena-core-lab --self-check)
   set_tests_properties(
     arena_core_server_self_check
     arena_core_robot_self_check
+    arena_core_lab_self_check
     PROPERTIES LABELS "smoke"
   )
 

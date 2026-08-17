@@ -1,6 +1,25 @@
 # 当前方案
 
-## 当前任务
+## 2026-08-17 v1.1 M10—M12 收口方案
+
+- 任务模式：按已确认范围执行；复杂任务；`full/build`。
+- 当前分支：`codex/v1.1-scenario-lab`。
+- 已完成：可信结果、Scenario/Run 引擎、独立 Lab、五个 P0、Toxiproxy、四页 UI、只读 Observer、双编译器、真实依赖、E2E、Sanitizer、浏览器和 500/250/600 秒稳定性。
+- 收口结果：实验分支形成单一 v1.1 完成提交，并由 detached fresh-clone 对该精确提交复现；工程开发结束。
+- 明确不做：合并 `main`、创建 `v1.1.0` 标签、推送 GitHub、增加 v1.2 功能或公网部署。
+- 用户下一介入点：只在工程完成后查看页面效果并决定是否合并/公开；不需要用户读代码或补做技术测试。
+
+### 最终门禁
+
+- [x] GCC/Clang 各 119/119，普通环境唯一真实依赖项按设计 Skipped。
+- [x] 真实 MySQL/Redis 12/12，M9 与 M7 E2E 通过。
+- [x] ASan+UBSan 119/119，TSan 目标集 103/103。
+- [x] Compose 默认/Lab、五 P0、重放、取消、超时与 cleanup。
+- [x] 桌面/390px 浏览器、Observer 只读、console/page error 0。
+- [x] 500 连接、250 房间、600 秒，业务错误 0。
+- [x] 最终分支提交与精确提交 fresh-clone；机器摘要保存在被忽略的 `.runtime/m12-local-clone-summary.json`。
+
+## 历史：M9 完成时任务
 
 - 任务名称：竞域 v1.1 M9 可信比赛结果接入。
 - 任务模式：按已确认范围执行；复杂任务；`full/build`。

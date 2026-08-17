@@ -4,6 +4,7 @@
 /.runtime/
 /.env
 /.cache/
+/.playwright-mcp/
 /.idea/
 /.vscode/
 *.log

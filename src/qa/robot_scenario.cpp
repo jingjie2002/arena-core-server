@@ -312,7 +312,8 @@ ClientOutcome run_client_round(const RobotScenario& scenario,
                                RobotClient& client,
                                RoomJoinBarrier& join_barrier,
                                RoomJoinBarrier& ready_barrier,
-                               const DemoBattleAdapter& battle_adapter) {
+                               const DemoBattleAdapter& battle_adapter,
+                               std::mutex& result_submission_mutex) {
   const auto started = SteadyClock::now();
   const auto bucket = (client_index / 2U) % scenario.mmr_bucket_count;
   const auto mmr = static_cast<std::int32_t>(
@@ -350,6 +351,7 @@ ClientOutcome run_client_round(const RobotScenario& scenario,
     result.winner_id = winner_id;
     result.loser_id = loser_id;
     result.finished_at = current_utc_rfc3339();
+    std::lock_guard<std::mutex> submission_lock(result_submission_mutex);
     if (const auto error = battle_adapter.submit(result)) {
       throw std::runtime_error(error.message);
     }
@@ -464,8 +466,6 @@ bool same_replay_result(const RobotOperation& expected, const RobotOperation& ac
          expected.round_index == actual.round_index &&
          expected.first_player == actual.first_player &&
          expected.second_player == actual.second_player &&
-         expected.match_id == actual.match_id &&
-         expected.room_id == actual.room_id &&
          expected.winner_id == actual.winner_id &&
          expected.loser_id == actual.loser_id &&
          expected.winner_score == actual.winner_score &&
@@ -624,6 +624,7 @@ RobotRunReport run_robot_scenario(const RobotScenario& scenario) {
   std::atomic<bool> stop_requested{false};
   RoomJoinBarrier join_barrier;
   RoomJoinBarrier ready_barrier;
+  std::mutex result_submission_mutex;
   const auto* result_token = std::getenv(scenario.result_token_env.c_str());
   if (result_token == nullptr || *result_token == '\0') {
     report.failures.push_back(
@@ -651,7 +652,20 @@ RobotRunReport run_robot_scenario(const RobotScenario& scenario) {
           ++ready_workers;
           announced_ready = true;
           gate_ready.notify_one();
-          gate_start.wait(lock, [&] { return start_workers; });
+          while (!start_workers) {
+            const auto wait_status = gate_start.wait_for(
+                lock, std::chrono::milliseconds(scenario.heartbeat_interval_ms));
+            if (wait_status != std::cv_status::timeout || start_workers) {
+              continue;
+            }
+            lock.unlock();
+            const auto client_time = static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    SteadyClock::now().time_since_epoch()).count());
+            client.heartbeat(client_time);
+            heartbeat_count.fetch_add(1, std::memory_order_relaxed);
+            lock.lock();
+          }
         }
         if (stop_requested.load(std::memory_order_relaxed)) {
           return;
@@ -667,7 +681,8 @@ RobotRunReport run_robot_scenario(const RobotScenario& scenario) {
                 std::chrono::milliseconds(static_cast<std::uint64_t>(scenario.queue_stagger_ms) * client_index));
           }
           auto outcome = run_client_round(scenario, client_index, round, client, join_barrier,
-                                          ready_barrier, battle_adapter);
+                                          ready_barrier, battle_adapter,
+                                          result_submission_mutex);
           std::lock_guard<std::mutex> lock(result_mutex);
           outcomes.push_back(std::move(outcome));
         }

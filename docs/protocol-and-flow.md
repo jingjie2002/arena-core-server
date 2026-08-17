@@ -56,3 +56,12 @@ sequenceDiagram
 服务端校验 match、room、双方成员、规则版本和完成时间，再生成调用方不可指定的结果指纹。相同结果重放返回既有 receipt，不重复加分；result 或 match 内容冲突会被稳定拒绝。只有 MySQL 事务提交后，玩家才收到 `MatchResultCommitted`，断线后也可以只读查询。
 
 完整边界与字段见 `docs/specs/m9-trusted-result-ingress.md`、`proto/arena_core.proto`、`docs/specs/protocol-v1.md` 和 `docs/specs/error-catalog-v1.md`。
+
+## Lab 如何证明协议语义
+
+`arena-core-lab` 不读取 Session token，也不调用 GameService 内部方法。每个场景创建真实 TCP 客户端并执行 Hello；客户端把敏感凭证保存在进程内，Run 报告只能读取 `connected`、`resumed`、`credentials_rotated` 和 `generation` 等布尔/数值证据。
+
+- 重复玩家请求场景先构造一个不透明 Envelope，再原样多次发送，保证 `request_id`、session token 和 payload 字节完全相同；断言响应字节相同且 ticket/room/settlement 只有一个。
+- 断线场景在 `before_queue`、`after_match` 或 `after_join` 关闭旧 socket。窗口内要求新旧凭证都轮换且 generation +1；窗口外要求明确返回 `SESSION_RECONNECT_EXPIRED`。
+- 重复可信结果场景通过 HTTP 多次提交原结果或交换胜负方，分别验证 200 幂等 receipt 与 409 业务冲突。
+- 重放 Run 只复用场景、参数、seed 与 timeout，不复用 session、match、room 或 result ID，因此比较的是协议语义和自动断言。

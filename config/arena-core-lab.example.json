@@ -1,0 +1,29 @@
+{
+  "environment": "local-lab",
+  "git_commit": "unknown",
+  "service_config_digest": "local-example",
+  "http": {
+    "bind_address": "127.0.0.1",
+    "port": 8081,
+    "allow_non_loopback": false,
+    "static_root": "web/lab",
+    "maximum_request_body_bytes": 65536
+  },
+  "reports": {"directory": ".runtime/lab-runs"},
+  "player": {"host": "127.0.0.1", "port": 9100},
+  "trusted_result": {
+    "host": "127.0.0.1",
+    "port": 9200,
+    "service_token_env": "ARENA_RESULT_SERVICE_TOKEN"
+  },
+  "observer": {"host": "127.0.0.1", "port": 8080},
+  "session": {"reconnect_window_ms": 15000},
+  "toxiproxy": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 8474,
+    "proxy_name": "arena_lab_redis",
+    "listen": "0.0.0.0:26379",
+    "upstream": "redis:6379"
+  }
+}

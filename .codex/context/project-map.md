@@ -1,5 +1,21 @@
 # 项目地图
 
+## 2026-08-17 v1.1 M10—M12 新增结构
+
+- `apps/lab/`：独立本机 Scenario Lab 进程入口。
+- `include/arena_core/qa/lab_*`、`src/qa/lab_*`：运行配置、Schema、Run 状态机/报告、HTTP API、带截止/取消/重连的真实 TCP 客户端与五类场景。
+- `include/arena_core/qa/toxiproxy_client.hpp`、`src/qa/toxiproxy_client.cpp`：固定目标、有限故障类型和必清理的 Toxiproxy 客户端。
+- `web/lab/`：服务概览、场景实验台、运行详情、接入指南和同源 SVG 图标；无外部资源。
+- `config/arena-core-lab.example.json`、`compose.yaml`：Lab 配置契约和可选 `lab` profile；默认 profile 不启 Lab/Toxiproxy。
+- `scripts/lab-smoke.sh`、更新后的 `scripts/demo-*.sh`：五 P0、重放、取消、超时、cleanup 与默认/Lab 生命周期。
+- `tests/qa/lab_*`、`tests/qa/toxiproxy_client_test.cpp`：参数边界、HTTP 白名单、状态、报告、协议、截止/取消和故障控制测试。
+- `docs/integration-guide.md`、`docs/release-notes-v1.1.0.md`、`docs/operations/M12-final-verification-2026-08-17.md`、`docs/handoffs/M12-v1.1-scenario-lab.md`：接入、版本、证据和非技术交接。
+- `docs/assets/v1.1-lab-run-*.png`：最终桌面与手机 Run 页面证据。
+
+构建、Run 原始报告和 fresh-clone 机器摘要仍位于被忽略的 `out/` 与 `.runtime/`，不提交源码仓库。
+
+---
+
 ## 2026-08-12 M9 可信比赛结果接入新增结构
 
 - `include/arena_core/game/trusted_result.hpp`、`src/game/trusted_result.cpp`：可信结果请求、校验、指纹和 receipt 映射。

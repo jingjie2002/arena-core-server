@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="竞域 1v1 对局编排与结算服务的本地开发与 QA 控制台。">
+  <title>服务概览｜竞域 Lab</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="overview">
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="overview.html" aria-label="竞域 Lab 首页">
+        <span class="brand-mark" aria-hidden="true">竞</span>
+        <span class="brand-copy"><strong>竞域</strong><small>Arena Core Lab</small></span>
+      </a>
+      <nav class="primary-nav" aria-label="主导航">
+        <a href="overview.html" aria-current="page">服务概览</a>
+        <a href="scenarios.html">场景实验台</a>
+        <a href="runs.html">运行详情</a>
+        <a href="integration.html">接入指南</a>
+      </nav>
+      <span class="lab-badge">仅限本地 Lab</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">1v1 Match Orchestration</p>
+      <h1 id="page-title">战斗之外，管理一场比赛如何开始与结束。</h1>
+      <p class="hero-copy">
+        这是<strong>游戏后台服务</strong>，不是游戏画面。它供游戏客户端、可信战斗模块和研发人员使用，
+        负责连接、1v1 匹配、房间、可信结果结算与排行恢复。
+      </p>
+      <div class="hero-actions">
+        <a class="button" href="scenarios.html">运行真实测试场景 <span aria-hidden="true">→</span></a>
+        <a class="button secondary" href="integration.html">了解如何接入</a>
+      </div>
+    </section>
+
+    <section aria-labelledby="positioning-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">先看懂它</p>
+          <h2 id="positioning-title">四个问题，说明这个项目能做什么</h2>
+        </div>
+      </div>
+      <div class="card-grid">
+        <article class="card">
+          <span class="card-number">01 / 它是什么</span>
+          <h3>1v1 对局编排与结算服务</h3>
+          <p>管理玩家进入、匹配、房间准备、结果接收、积分落库与排行榜，不负责技能、地图或战斗帧同步。</p>
+        </article>
+        <article class="card">
+          <span class="card-number">02 / 谁会使用</span>
+          <h3>客户端、战斗模块、研发人员</h3>
+          <p>玩家客户端走 TCP；可信战斗模块提交结果；研发人员在本机 Lab 中运行可重复的真实测试。</p>
+        </article>
+        <article class="card">
+          <span class="card-number">03 / 现在能运行</span>
+          <h3>真实协议与真实依赖链路</h3>
+          <p>Lab 驱动真实 Robot 客户端和可信结果接口；实际可用场景以当前服务返回的能力清单为准。</p>
+        </article>
+        <article class="card">
+          <span class="card-number">04 / 结果在哪里</span>
+          <h3>每次运行都有独立记录</h3>
+          <p>运行详情会展示参数快照、事件时间线、自动断言、失败位置与清理证据，不用猜测是否成功。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="service-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Live Capabilities</p>
+          <h2 id="service-title">当前 Lab 服务</h2>
+          <p>以下信息直接读取本机控制器；接口不可用时不会填入演示数字。</p>
+        </div>
+        <div class="status-line" id="capability-status" role="status" aria-live="polite">
+          <span class="status-dot loading"></span><span>正在读取真实能力…</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <div class="fact-grid" id="service-facts" aria-busy="true">
+            <div class="fact"><span class="fact-label">服务</span><span class="fact-value">—</span><span class="fact-note">等待服务响应</span></div>
+            <div class="fact"><span class="fact-label">版本</span><span class="fact-value">—</span><span class="fact-note">未读取</span></div>
+            <div class="fact"><span class="fact-label">运行环境</span><span class="fact-value">—</span><span class="fact-note">由控制器报告</span></div>
+            <div class="fact"><span class="fact-label">可运行场景</span><span class="fact-value">—</span><span class="fact-note">未读取能力清单</span></div>
+          </div>
+          <div id="overview-message" class="notice" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="boundary-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">产品边界</p>
+          <h2 id="boundary-title">它负责什么，也明确不负责什么</h2>
+        </div>
+      </div>
+      <div class="card-grid two">
+        <article class="card role-card trusted">
+          <span class="role-tag">服务负责</span>
+          <h3>对局编排、可信结算与恢复</h3>
+          <p>维持玩家会话，按规则匹配对手，管理房间状态，验证可信比赛结果，通过 MySQL 保存事实，并在 Redis 恢复后修复排行缓存。</p>
+        </article>
+        <article class="card role-card">
+          <span class="role-tag">服务不负责</span>
+          <h3>实际战斗玩法与游戏画面</h3>
+          <p>不计算技能伤害，不同步地图与角色状态，也不是通用 MMO 框架。比赛胜负必须来自受信任的战斗模块。</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner"><span>竞域 Arena Core · 本地开发与 QA 控制台</span><span>正式服务默认不开放 Lab 写能力</span></div>
+  </footer>
+</body>
+</html>

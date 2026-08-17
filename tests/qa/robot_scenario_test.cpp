@@ -51,9 +51,16 @@ TEST(RobotScenarioTest, ReplayComparisonIgnoresTimingButRejectsBusinessDrift) {
   RobotRunReport actual = expected;
   actual.passed = true;
   actual.operations.front().latency_us = 50'000;
+  actual.operations.front().match_id = "match-2";
+  actual.operations.front().room_id = "room-2";
   EXPECT_FALSE(verify_robot_replay(expected, actual));
 
   actual.operations.front().winner_id = "b";
+  EXPECT_TRUE(verify_robot_replay(expected, actual));
+
+  actual = expected;
+  actual.passed = true;
+  actual.operations.front().winner_score = 1032;
   EXPECT_TRUE(verify_robot_replay(expected, actual));
 }
 

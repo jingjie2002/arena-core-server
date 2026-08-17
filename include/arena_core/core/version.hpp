@@ -7,7 +7,7 @@
 namespace arena_core {
 
 inline constexpr std::string_view kProjectName = "arena-core-server";
-inline constexpr std::string_view kProjectVersion = "1.0.1";
+inline constexpr std::string_view kProjectVersion = "1.1.0";
 inline constexpr std::string_view kProtocolVersion = "1";
 
 }  // namespace arena_core

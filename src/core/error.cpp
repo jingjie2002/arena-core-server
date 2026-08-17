@@ -48,6 +48,13 @@ std::string_view error_code_name(const ErrorCode code) noexcept {
     case ErrorCode::kRuleVersionMismatch: return "RULE_VERSION_MISMATCH";
     case ErrorCode::kDependencyRedisUnavailable: return "DEPENDENCY_REDIS_UNAVAILABLE";
     case ErrorCode::kDependencyMysqlUnavailable: return "DEPENDENCY_MYSQL_UNAVAILABLE";
+    case ErrorCode::kQaScenarioInvalid: return "QA_SCENARIO_INVALID";
+    case ErrorCode::kQaRunAlreadyActive: return "QA_RUN_ALREADY_ACTIVE";
+    case ErrorCode::kQaRunNotFound: return "QA_RUN_NOT_FOUND";
+    case ErrorCode::kQaRunNotCancellable: return "QA_RUN_NOT_CANCELLABLE";
+    case ErrorCode::kQaRunCancelled: return "QA_RUN_CANCELLED";
+    case ErrorCode::kQaRunTimedOut: return "QA_RUN_TIMED_OUT";
+    case ErrorCode::kQaCleanupFailed: return "QA_CLEANUP_FAILED";
     case ErrorCode::kServerBusy: return "SERVER_BUSY";
     case ErrorCode::kServerShuttingDown: return "SERVER_SHUTTING_DOWN";
     case ErrorCode::kInternalError: return "INTERNAL_ERROR";
@@ -67,6 +74,9 @@ bool error_is_retryable(const ErrorCode code) noexcept {
     case ErrorCode::kRuleExecutionFailed:
     case ErrorCode::kDependencyRedisUnavailable:
     case ErrorCode::kDependencyMysqlUnavailable:
+    case ErrorCode::kQaRunAlreadyActive:
+    case ErrorCode::kQaRunTimedOut:
+    case ErrorCode::kQaCleanupFailed:
     case ErrorCode::kServerBusy:
     case ErrorCode::kServerShuttingDown:
     case ErrorCode::kInternalError:

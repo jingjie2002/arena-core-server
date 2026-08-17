@@ -1,5 +1,18 @@
 # 当前状态
 
+## 2026-08-17 v1.1 Scenario Lab 工程实现与本机最终门禁完成
+
+- 当前位于实验分支 `codex/v1.1-scenario-lab`；`main`、既有标签和 GitHub 远端未修改。
+- M10—M11 已完成独立 `arena-core-lab`、版本化 Scenario/Run、真实协议客户端、五类 P0 场景、Toxiproxy Redis 故障、四页响应式 UI 与默认只读 Observer。
+- GCC/Clang 各 119/119；真实 MySQL/Redis 12/12；M9/M7 E2E 通过；ASan+UBSan 119/119；TSan 目标集 103/103。
+- Compose 默认业务 smoke 与 Lab 五场景、重放、取消、超时、cleanup 全通过；桌面/390px 浏览器与 Observer 只读复核通过。
+- 600 秒稳定性达到 500 连接、250 房间、299,500 心跳、业务错误 0、峰值 RSS 24.0 MiB、P99 433.156 ms。
+- 正式证据：`docs/operations/M12-final-verification-2026-08-17.md`；非技术说明：`docs/handoffs/M12-v1.1-scenario-lab.md`；审计报告：`.codex/reports/第23次-v1.1场景实验台与最终验收-2026-08-17-1823.md`。
+- v1.1 最终提交由 detached fresh-clone 完成 GCC 全量、默认/Lab Compose、脚本权限与 clean 状态复现；机器摘要保存在被忽略的 `.runtime/m12-local-clone-summary.json`。
+- 工程开发已结束。下一步只由用户决定页面效果是否接受，以及是否合并 `main`、创建标签或公开 GitHub。
+
+---
+
 ## 2026-08-12 v1.1 M9 可信比赛结果接入已完成
 
 - 当前位于测试分支 `codex/v1.1-scenario-lab`；`main`、既有标签和 GitHub 远端均未改动。

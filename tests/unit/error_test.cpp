@@ -26,5 +26,15 @@ TEST(ErrorCatalogTest, SuccessHasNoFailureFlags) {
   EXPECT_FALSE(error.close_connection);
 }
 
+TEST(ErrorCatalogTest, LabRunErrorsHaveStablePublicNames) {
+  EXPECT_EQ(error_code_name(ErrorCode::kQaScenarioInvalid), "QA_SCENARIO_INVALID");
+  EXPECT_EQ(error_code_name(ErrorCode::kQaRunAlreadyActive), "QA_RUN_ALREADY_ACTIVE");
+  EXPECT_EQ(error_code_name(ErrorCode::kQaRunNotFound), "QA_RUN_NOT_FOUND");
+  EXPECT_EQ(error_code_name(ErrorCode::kQaRunNotCancellable), "QA_RUN_NOT_CANCELLABLE");
+  EXPECT_EQ(error_code_name(ErrorCode::kQaRunCancelled), "QA_RUN_CANCELLED");
+  EXPECT_EQ(error_code_name(ErrorCode::kQaRunTimedOut), "QA_RUN_TIMED_OUT");
+  EXPECT_EQ(error_code_name(ErrorCode::kQaCleanupFailed), "QA_CLEANUP_FAILED");
+}
+
 }  // namespace
 }  // namespace arena_core

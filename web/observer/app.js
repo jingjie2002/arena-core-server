@@ -1,9 +1,6 @@
 const byId = (id) => document.getElementById(id);
 const endpoints = ["overview", "sessions", "tickets", "rooms", "rankings", "qa/runs"];
 let refreshTimer;
-let scenarioRunning = false;
-let selectedScenario = "";
-let scenarioError = "";
 
 const escapeHtml = (value) => String(value ?? "")
   .replaceAll("&", "&amp;")
@@ -23,7 +20,7 @@ const stateLabels = {
 };
 
 const healthNames = {
-  observer: "当前演示页面",
+  observer: "只读观察接口",
   tcp: "玩家连接入口",
   mysql: "比赛成绩数据库",
   redis: "排行榜缓存"
@@ -34,10 +31,10 @@ const healthDetails = {
   "transaction source ready": "可以正常保存比赛成绩",
   "rank cache fresh": "排行榜数据已经是最新的",
   "repaired from MySQL; cache fresh": "已根据真实成绩自动恢复，排行榜是最新的",
-  "simulated timeout; MySQL remains authoritative": "正在模拟排行榜故障，真实比赛成绩仍然安全",
-  "demo mode": "本地安全演示已开启",
+  "simulated timeout; MySQL remains authoritative": "排行缓存暂时不可用，MySQL 结算事实仍然安全",
+  "demo mode": "旧版本地演示模式",
   "read only": "当前页面只读取状态，不修改业务数据",
-  "not configured": "当前演示未连接外部数据库",
+  "not configured": "当前运行配置未启用该外部依赖",
   checking: "正在检查运行状态",
   draining: "正在安全停止",
   stopped: "已经停止"
@@ -56,7 +53,7 @@ const qaDetails = {
 };
 
 const eventTypes = {
-  "observer.started": "演示页面已启动",
+  "observer.started": "只读观察接口已启动",
   "session.connected": "玩家已连接",
   "session.active": "玩家连接已确认",
   "session.rejected": "玩家连接被拒绝",
@@ -80,26 +77,27 @@ const eventTypes = {
 };
 
 const eventMessages = {
-  "both players ready; deterministic result frozen": "双方玩家都已准备，服务器确定了本场比赛结果。",
+  "both players ready; deterministic result frozen": "历史版本已冻结确定性结果。",
+  "both players ready; awaiting trusted result": "双方已准备，房间正在等待可信战斗结果。",
   "MySQL committed before Redis rank update": "比赛成绩已先保存，再更新排行榜。",
   "room closed after settlement commit": "成绩保存成功后，本场比赛安全结束。",
   "8-player / 4-room demonstration passed": "8 人、4 场比赛的完整流程已通过。",
   "same fingerprint replay returned original receipt": "发现相同比赛结果再次提交，服务器返回第一次的结果。",
   "duplicate settlement did not double-apply score": "重复提交没有导致玩家再次加分。",
-  "Redis update failed; dirty row retained": "模拟排行榜更新失败，服务器保留了待修记录。",
+  "Redis update failed; dirty row retained": "排行榜更新失败，服务器保留了待修记录。",
   "repair worker replayed MySQL target scores": "自动修复程序正在根据真实成绩重建排行榜。",
   "dirty cleared after cache reached MySQL state": "排行榜追上真实成绩后，待修记录已经清除。",
   "Redis failure recovery passed": "排行榜故障恢复检查通过。",
-  "observer API listening": "演示页面已经可以读取服务器状态。"
+  "observer API listening": "只读观察接口已经可以读取服务状态。"
 };
 
-function emptyRow(columns, text = "运行第 1 项后显示数据") {
+function emptyRow(columns, text = "当前没有运行数据") {
   return `<tr><td class="empty" colspan="${columns}">${escapeHtml(text)}</td></tr>`;
 }
 
 function playerName(value) {
   const match = /^player-(\d+)$/.exec(String(value ?? ""));
-  return match ? `模拟玩家 ${match[1]}` : String(value || "等待玩家连接");
+  return match ? `玩家 ${match[1]}` : String(value || "等待玩家连接");
 }
 
 function roomName(value) {
@@ -119,9 +117,9 @@ function translateState(value) {
 function translateEventMessage(value) {
   if (eventMessages[value]) return eventMessages[value];
   const hello = /^player-(\d+) completed Hello$/.exec(String(value ?? ""));
-  if (hello) return `模拟玩家 ${hello[1]} 已完成连接确认。`;
+  if (hello) return `玩家 ${hello[1]} 已完成连接确认。`;
   const matched = /^player-(\d+) matched into room$/.exec(String(value ?? ""));
-  if (matched) return `模拟玩家 ${matched[1]} 已经匹配进入比赛房间。`;
+  if (matched) return `玩家 ${matched[1]} 已经匹配进入比赛房间。`;
   return value || "服务器记录了一次状态变化。";
 }
 
@@ -159,7 +157,7 @@ function renderRooms(data) {
   byId("room-cards").innerHTML = items.length ? items.map((room) => `
     <article class="room-card"><header><strong>${escapeHtml(roomName(room.room_id))}</strong><span class="state">${escapeHtml(translateState(room.state))}</span></header>
     <p>${escapeHtml((room.players || []).map(playerName).join(" 对战 "))}</p><p>获胜者：${escapeHtml(playerName(room.winner_id || ""))}</p>
-    <p><code>内部追踪：${escapeHtml(room.trace_id)}</code></p></article>`).join("") : '<p class="empty">运行第 1 项后显示比赛房间</p>';
+    <p><code>内部追踪：${escapeHtml(room.trace_id)}</code></p></article>`).join("") : '<p class="empty">当前没有比赛房间</p>';
 }
 
 function renderRankings(data) {
@@ -176,16 +174,16 @@ function renderRankings(data) {
     <article class="settlement"><div><strong>${escapeHtml(settlementName(item.settlement_id))}</strong>
       <p>${escapeHtml(playerName(item.winner_id))} 获胜 · ${escapeHtml(translateState(item.status))}</p>
       <code>内部编号：${escapeHtml(item.settlement_id)}</code></div>
-      ${item.idempotent_replay ? '<span class="replay">重复提交已识别</span>' : ""}</article>`).join("") : '<p class="empty">运行第 1 项后显示比赛成绩</p>';
+      ${item.idempotent_replay ? '<span class="replay">重复提交已识别</span>' : ""}</article>`).join("") : '<p class="empty">当前没有已提交比赛成绩</p>';
 }
 
 function renderQa(data) {
   const items = data.items || [];
   byId("qa-runs").innerHTML = items.length ? items.map((run) => `
-    <article class="qa-card"><header><span class="qa-label">演示自动检查</span><span class="passed">${run.status === "passed" ? "测试通过" : "测试未通过"}</span></header>
+    <article class="qa-card"><header><span class="qa-label">QA 检查</span><span class="passed">${run.status === "passed" ? "测试通过" : "测试未通过"}</span></header>
       <h3>${escapeHtml(qaNames[run.name] || run.name)}</h3><p>${escapeHtml(qaDetails[run.detail] || run.detail)}</p>
       <div class="qa-meta"><span>耗时 ${escapeHtml(run.duration_ms)} 毫秒</span><span>${escapeHtml(run.bug_id ? `关联问题 ${run.bug_id}` : "没有关联问题")}</span></div>
-      <code class="qa-id">内部编号：${escapeHtml(run.run_id)}</code></article>`).join("") : '<p class="empty">运行演示后显示自动检查记录</p>';
+      <code class="qa-id">内部编号：${escapeHtml(run.run_id)}</code></article>`).join("") : '<p class="empty">当前进程尚未收录 QA 记录</p>';
 }
 
 async function renderTimeline() {
@@ -200,94 +198,6 @@ async function renderTimeline() {
       <code>${escapeHtml(event.trace_id || "系统事件")}</code></article>`).join("") : '<p class="empty">没有符合筛选条件的处理记录</p>';
 }
 
-function inferScenario(qa) {
-  const scenarios = new Set((qa.items || []).map((item) => item.scenario_id));
-  if (scenarios.has("redis-repair")) return "redis-repair";
-  if (scenarios.has("duplicate-settlement")) return "duplicate-settlement";
-  if (scenarios.has("eight-player-flow")) return "eight-player-flow";
-  return "";
-}
-
-function resultFact(value, explanation) {
-  return `<div class="result-fact"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(explanation)}</span></div>`;
-}
-
-function setResultCard(mark, kicker, title, summary, facts, proof, state = "success") {
-  const card = byId("scenario-result");
-  card.className = `result-card ${state}`;
-  card.innerHTML = `
-    <div class="result-mark">${escapeHtml(mark)}</div>
-    <div class="result-main">
-      <p class="result-kicker">${escapeHtml(kicker)}</p>
-      <h2>${escapeHtml(title)}</h2>
-      <p class="result-summary">${escapeHtml(summary)}</p>
-      ${facts.length ? `<div class="result-facts">${facts.join("")}</div>` : ""}
-      ${proof ? `<p class="result-proof"><strong>这证明了：</strong>${escapeHtml(proof)}</p>` : ""}
-    </div>`;
-}
-
-function renderScenarioResult(scenario, snapshot) {
-  if (!scenario) return;
-  const counts = snapshot.overview.counts || {};
-  const settlements = snapshot.rankings.settlements || [];
-  const qaItems = snapshot.qa.items || [];
-
-  if (scenario === "eight-player-flow") {
-    const passed = counts.sessions_online === 8 && counts.rooms_total === 4 && counts.settlements === 4;
-    if (!passed) return renderUnexpectedResult();
-    setResultCard("✓", "第 1 项完成 · 结果正确", "完整比赛演示通过",
-      "刚才服务器让 8 名模拟玩家进入，自动组成 4 场一对一比赛，确定胜者，并保存了 4 份比赛成绩。",
-      [
-        resultFact(`${counts.sessions_online} 名玩家`, "已经连接到服务器"),
-        resultFact(`${counts.rooms_total} 场比赛`, "4 个房间都已结束"),
-        resultFact(`${counts.settlements} 份成绩`, "每场比赛保存 1 份")
-      ],
-      "服务器能够完成“玩家连接 → 匹配 → 比赛 → 保存成绩 → 更新排行”的完整流程。");
-    return;
-  }
-
-  if (scenario === "duplicate-settlement") {
-    const replayed = settlements.some((item) => item.idempotent_replay);
-    const passed = counts.settlements === 4 && replayed;
-    if (!passed) return renderUnexpectedResult();
-    setResultCard("✓", "第 2 项完成 · 结果正确", "重复提交保护通过",
-      "刚才服务器再次收到了第 1 场比赛的相同成绩。它识别出这是重复请求，没有再次加分，也没有新增第 5 份成绩。",
-      [
-        resultFact(`${counts.settlements} 份成绩`, "数量仍是 4，没有变成 5"),
-        resultFact("只计分一次", "同一场比赛不会重复加分"),
-        resultFact("返回原结果", "重复请求安全复用第一次结果")
-      ],
-      "即使网络重试或重复点击，玩家也不会利用重复请求获得两次分数。");
-    return;
-  }
-
-  if (scenario === "redis-repair") {
-    const redis = snapshot.overview.health?.redis;
-    const board = (snapshot.rankings.leaderboards || [])[0];
-    const qaPassed = qaItems.some((item) => item.scenario_id === "redis-repair" && item.status === "passed");
-    const passed = redis?.healthy && board?.cache_state === "fresh" && qaPassed;
-    if (!passed) return renderUnexpectedResult();
-    setResultCard("✓", "第 3 项完成 · 结果正确", "排行榜故障已经自动恢复",
-      "刚才程序模拟排行榜缓存短暂不可用。服务器没有丢失真实比赛成绩，并在缓存恢复后自动把排行榜修复到最新状态。",
-      [
-        resultFact("模拟一次故障", "排行榜曾短暂无法更新"),
-        resultFact("真实成绩未丢失", "主数据库仍保存正确结果"),
-        resultFact("排行榜已恢复", "当前数据重新是最新的")
-      ],
-      "排行榜临时故障不会破坏真实比赛成绩，系统能够在恢复后自动补齐数据。");
-  }
-}
-
-function renderUnexpectedResult() {
-  setResultCard("!", "结果需要检查", "本次结果与预期不一致",
-    "你不需要排查原因。页面已经保留技术明细，交给 Codex 检查即可。", [], "", "error");
-}
-
-function renderLoading(button) {
-  setResultCard("…", "正在运行", button.querySelector("strong").textContent,
-    "服务器正在准备演示数据并完成自动检查，通常只需要一瞬间。", [], "", "loading");
-}
-
 async function refresh() {
   try {
     const [overview, sessions, , rooms, rankings, qa] = await Promise.all(endpoints.map(getJson));
@@ -300,10 +210,6 @@ async function refresh() {
     await renderTimeline();
     byId("poll-status").className = "live-pill online";
     byId("poll-status").innerHTML = "<i></i>服务器运行正常";
-    if (!scenarioRunning && !scenarioError) {
-      const scenario = selectedScenario || inferScenario(qa);
-      renderScenarioResult(scenario, snapshot);
-    }
     return snapshot;
   } catch (error) {
     byId("poll-status").className = "live-pill";
@@ -313,33 +219,6 @@ async function refresh() {
   }
 }
 
-async function runScenario(button) {
-  const scenario = button.dataset.scenario;
-  scenarioRunning = true;
-  scenarioError = "";
-  selectedScenario = scenario;
-  document.querySelectorAll(".scenario").forEach((item) => { item.disabled = true; });
-  renderLoading(button);
-  try {
-    const response = await fetch(`/api/demo/scenarios/${encodeURIComponent(scenario)}`, {
-      method: "POST",
-      headers: { "X-Arena-Demo": "1" }
-    });
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-    const snapshot = await refresh();
-    renderScenarioResult(scenario, snapshot);
-  } catch (error) {
-    scenarioError = error.message;
-    setResultCard("!", "演示没有完成", "服务器暂时无法完成这项操作",
-      "你不需要解决这个问题，把当前页面交给 Codex 检查即可。", [], "", "error");
-  } finally {
-    scenarioRunning = false;
-    document.querySelectorAll(".scenario").forEach((item) => { item.disabled = false; });
-  }
-}
-
-document.querySelectorAll(".scenario").forEach((button) => button.addEventListener("click", () => runScenario(button)));
 byId("trace-filter").addEventListener("input", () => {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(renderTimeline, 180);

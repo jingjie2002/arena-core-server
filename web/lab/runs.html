@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="查看竞域 Lab Run 的真实状态、事件、断言和清理证据。">
+  <title>运行详情｜竞域 Lab</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="runs">
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="overview.html" aria-label="竞域 Lab 首页"><span class="brand-mark" aria-hidden="true">竞</span><span class="brand-copy"><strong>竞域</strong><small>Arena Core Lab</small></span></a>
+      <nav class="primary-nav" aria-label="主导航"><a href="overview.html">服务概览</a><a href="scenarios.html">场景实验台</a><a href="runs.html" aria-current="page">运行详情</a><a href="integration.html">接入指南</a></nav>
+      <span class="lab-badge">仅限本地 Lab</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">Run Evidence</p>
+      <h1 id="page-title">不只看“成功”，还要看它如何成功。</h1>
+      <p class="hero-copy">每次 Run 都有不可变输入、真实事件、自动断言和清理结果。失败时会保留第一个偏离步骤，方便复现，而不是只显示一个红色按钮。</p>
+    </section>
+
+    <section aria-labelledby="lookup-title">
+      <div class="panel">
+        <div class="panel-body">
+          <form id="run-lookup-form" class="run-toolbar">
+            <div class="field"><label for="run-id-input" id="lookup-title">Run ID</label><input id="run-id-input" name="run_id" type="text" autocomplete="off" placeholder="输入一个真实 run_id" maxlength="128"><span class="field-help">从场景实验台创建 Run 后会自动打开此页面。</span></div>
+            <button class="button secondary" type="submit">读取运行记录</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <div id="run-message" class="notice space-top-18" role="status" aria-live="polite" hidden></div>
+
+    <section class="section" id="run-empty" aria-labelledby="empty-title">
+      <div class="panel empty-state"><div><span class="empty-state-mark">RUN</span><h2 id="empty-title">尚未选择运行记录</h2><p>输入 run_id，或前往场景实验台创建一条真实 Run。页面不会内置一场虚构比赛。</p><div class="button-row centered"><a class="button" href="scenarios.html">前往场景实验台</a></div></div></div>
+    </section>
+
+    <div id="run-content" hidden>
+      <section class="section" aria-labelledby="run-summary-title">
+        <div class="section-heading"><div><p class="eyebrow">当前运行</p><h2 id="run-summary-title">状态与输入</h2></div><div class="button-row flush-top"><button class="button danger small" id="cancel-run" type="button" disabled>取消并清理</button><button class="button secondary small" id="replay-run" type="button" disabled>用原参数重放</button></div></div>
+        <div class="run-summary">
+          <article class="panel">
+            <div class="panel-body">
+              <div class="run-title-row"><div><p class="eyebrow" id="run-scenario-label">场景</p><h2 class="run-id" id="run-id-label">—</h2></div><span class="state-pill" id="run-status-pill">未知</span></div>
+              <ul class="data-list" id="run-core-facts"></ul>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-header"><h3>不可变参数快照</h3></div>
+            <div class="panel-body"><ul class="data-list" id="run-parameters"></ul></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="timeline-title">
+        <div class="section-heading"><div><p class="eyebrow">发生了什么</p><h2 id="timeline-title">事件时间线</h2><p>活动 Run 会短轮询新增事件；页面不会修改已经显示的历史事件。</p></div><div class="status-line" id="poll-status"><span class="status-dot"></span><span>未轮询</span></div></div>
+        <div class="panel"><div class="panel-body"><ol class="timeline" id="run-timeline"></ol><div class="empty-state" id="timeline-empty"><div><span class="empty-state-mark">···</span><h3>还没有事件</h3><p>如果 Run 刚创建，控制器可能仍在校验输入。</p></div></div></div></div>
+      </section>
+
+      <section class="section" aria-labelledby="assertion-title">
+        <div class="section-heading"><div><p class="eyebrow">结果为什么可信</p><h2 id="assertion-title">自动断言</h2><p>预期与实际值并列展示；未返回的内容保持“等待/无记录”，不会视为通过。</p></div></div>
+        <div class="panel"><div class="panel-body"><ul class="assertion-list" id="run-assertions"></ul><div class="empty-state" id="assertion-empty"><div><span class="empty-state-mark">?</span><h3>暂无断言结果</h3><p>Run 进入验证阶段后，服务端会返回实际断言。</p></div></div></div></div>
+      </section>
+
+      <section class="section" aria-labelledby="evidence-title">
+        <div class="section-heading"><div><p class="eyebrow">收尾证据</p><h2 id="evidence-title">业务证据与清理</h2></div></div>
+        <div class="detail-grid">
+          <article class="panel"><div class="panel-header"><h3>业务证据</h3></div><div class="panel-body"><ul class="data-list" id="run-evidence"></ul></div></article>
+          <article class="panel"><div class="panel-header"><h3>清理状态</h3></div><div class="panel-body" id="run-cleanup"><div class="notice">等待服务端返回清理记录。</div></div></article>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer"><div class="footer-inner"><span>每次重放都会创建新的 run_id</span><span>取消、超时和失败同样必须清理</span></div></footer>
+</body>
+</html>

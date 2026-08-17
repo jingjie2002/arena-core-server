@@ -76,6 +76,6 @@ RUN mkdir -p /opt/arena-core/.runtime \
     && chown -R arena:arena /opt/arena-core/.runtime
 
 USER arena
-EXPOSE 9100 8080 9200
+EXPOSE 9100 8080 8081 9200
 ENTRYPOINT ["/opt/arena-core/bin/arena-core-server"]
 CMD ["--config", "/opt/arena-core/.runtime/arena-core.json"]
