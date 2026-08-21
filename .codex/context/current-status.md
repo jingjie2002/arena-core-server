@@ -1,5 +1,17 @@
 # 当前状态
 
+## 2026-08-21 README 整理与 GitHub 私有发布完成
+
+- README 已重写为纯项目介绍，内容聚焦定位、功能、架构、技术栈、运行、测试、接入、安全边界和项目范围。
+- README 已移除实验分支、本地候选、作者发布决策和类似求职用途的表述；所有相对链接检查通过。
+- 当前文件与完整 Git 历史已完成常见密钥格式扫描，未发现匹配项。
+- GitHub 私有仓库已创建：`jingjie2002/arena-core-server`；远端默认分支为 `main`。
+- 本地 `codex/v1.1-scenario-lab` 跟踪 `origin/main`；本地历史 `main`、既有标签和业务代码未修改。
+- 没有创建 GitHub Release，也没有把仓库设为公开；公开可见性需要用户后续明确决定。
+- 操作记录：`.codex/reports/第24次-README整理与GitHub发布-2026-08-21-1334.md`。
+
+---
+
 ## 2026-08-17 v1.1 Scenario Lab 工程实现与本机最终门禁完成
 
 - 当前位于实验分支 `codex/v1.1-scenario-lab`；`main`、既有标签和 GitHub 远端未修改。
